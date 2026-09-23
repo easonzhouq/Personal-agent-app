@@ -1,5 +1,6 @@
 package com.example.agentchat.data.search
 
+import com.example.agentchat.data.location.DeviceCoordinates
 import java.net.URLEncoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,6 +34,7 @@ data class WebSearchContext(
 class WebSearchClient(
     private val client: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
+    private val locationProvider: suspend () -> DeviceCoordinates? = { null },
 ) {
     suspend fun search(query: String): WebSearchContext? = withContext(Dispatchers.IO) {
         if (!shouldSearch(query)) return@withContext null
@@ -59,13 +61,19 @@ class WebSearchClient(
         return WebSearchContext(query, summary, sources)
     }
 
-    private fun searchWeather(query: String): WebSearchContext? {
-        val city = extractCity(query) ?: return null
-        val geoUrl = "https://geocoding-api.open-meteo.com/v1/search?name=${encode(city)}&count=1&language=zh&format=json"
-        val geo = getJson(geoUrl)?.get("results")?.jsonArray?.firstOrNull()?.jsonObject ?: return null
-        val latitude = geo["latitude"]?.jsonPrimitive?.contentOrNull ?: return null
-        val longitude = geo["longitude"]?.jsonPrimitive?.contentOrNull ?: return null
-        val location = geo["name"]?.jsonPrimitive?.contentOrNull ?: city
+    private suspend fun searchWeather(query: String): WebSearchContext? {
+        val city = extractCity(query)
+        val coordinates = if (city == null) {
+            locationProvider()?.let { it.latitude.toString() to it.longitude.toString() }
+        } else {
+            val geoUrl = "https://geocoding-api.open-meteo.com/v1/search?name=${encode(city)}&count=1&language=zh&format=json"
+            val geo = getJson(geoUrl)?.get("results")?.jsonArray?.firstOrNull()?.jsonObject ?: return null
+            val latitude = geo["latitude"]?.jsonPrimitive?.contentOrNull ?: return null
+            val longitude = geo["longitude"]?.jsonPrimitive?.contentOrNull ?: return null
+            latitude to longitude
+        }
+        val (latitude, longitude) = coordinates ?: return null
+        val location = city ?: "当前位置"
         val weatherUrl = "https://api.open-meteo.com/v1/forecast?latitude=$latitude&longitude=$longitude&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m&timezone=auto"
         val current = getJson(weatherUrl)?.get("current")?.jsonObject ?: return null
         val temperature = current["temperature_2m"]?.jsonPrimitive?.contentOrNull ?: return null

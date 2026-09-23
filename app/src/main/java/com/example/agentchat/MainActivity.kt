@@ -51,11 +51,26 @@ internal fun AgentChatContent(container: AppContainer) {
             val voiceController = container.voiceInputController
             val voiceState by voiceController.state.collectAsState()
             val voiceError by voiceController.errorMessage.collectAsState()
-            val lifecycleOwner = LocalContext.current as? LifecycleOwner
+            val context = LocalContext.current
+            val lifecycleOwner = context as? LifecycleOwner
+            var locationPermissionGranted by remember {
+                mutableStateOf(
+                    context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED,
+                )
+            }
             val requestAudioPermission = androidx.activity.compose.rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission(),
             ) { granted ->
                 if (granted) voiceController.start() else voiceController.reportPermissionDenied()
+            }
+            val requestLocationPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { granted -> locationPermissionGranted = granted }
+
+            LaunchedEffect(Unit) {
+                if (!locationPermissionGranted) {
+                    requestLocationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                }
             }
 
             LaunchedEffect(configState.configs, chatState.selectedConfigId, chatState.selectedModel) {

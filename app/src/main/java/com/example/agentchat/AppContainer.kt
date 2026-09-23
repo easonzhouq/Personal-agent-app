@@ -10,6 +10,7 @@ import com.example.agentchat.data.db.AgentDatabase
 import com.example.agentchat.data.db.LocalHistoryRepository
 import com.example.agentchat.data.export.ExportController
 import com.example.agentchat.data.provider.ProviderRegistry
+import com.example.agentchat.data.location.DeviceLocationProvider
 import com.example.agentchat.data.search.WebSearchClient
 import com.example.agentchat.data.secret.KeystoreSecretStore
 import com.example.agentchat.data.secret.SecretStore
@@ -51,7 +52,8 @@ class AppContainer(
         contentResolver = contentResolver,
         attachmentEncoder = attachmentEncoder,
     )
-    val webSearchClient = WebSearchClient()
+    val locationProvider = DeviceLocationProvider(applicationContext)
+    val webSearchClient = WebSearchClient(locationProvider = locationProvider::current)
     val modelConfigRepository: ModelConfigRepository = RoomModelConfigRepository(database, secretStore)
     val localHistoryRepository = LocalHistoryRepository(database, contentResolver)
     val attachmentReferenceCoordinator: AttachmentReferenceCoordinator = localHistoryRepository.attachmentReferenceCoordinator()
