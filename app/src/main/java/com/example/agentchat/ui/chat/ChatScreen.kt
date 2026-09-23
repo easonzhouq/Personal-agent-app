@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
@@ -128,21 +130,28 @@ fun ChatScreenContent(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (availableModels.isNotEmpty()) {
-                    androidx.compose.material3.TextButton(
-                        onClick = { showModelSheet = true },
+                    Row(
                         modifier = Modifier
                             .testTag("model-selector")
+                            .clickable { showModelSheet = true }
                             .semantics {
                                 contentDescription = "切换模型，当前 ${state.selectedModel?.displayName ?: "未选择"}"
                                 role = Role.DropdownList
                                 stateDescription = if (showModelSheet) "已展开" else "已收起"
-                            },
+                            }
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             state.selectedModel?.displayName ?: "选择模型",
                             style = MaterialTheme.typography.titleMedium,
                         )
-                        Text("⌄", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            "⌄",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                     }
                 } else {
                     Text("Agent Chat", style = MaterialTheme.typography.titleLarge)
