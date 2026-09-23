@@ -51,7 +51,7 @@ class AppContainer(
         contentResolver = contentResolver,
         attachmentEncoder = attachmentEncoder,
     )
-    val webSearchClient = WebSearchClient()
+    val webSearchClient = WebSearchClient(BuildConfig.TAVILY_API_KEY)
     val modelConfigRepository: ModelConfigRepository = RoomModelConfigRepository(database, secretStore)
     val localHistoryRepository = LocalHistoryRepository(database, contentResolver)
     val attachmentReferenceCoordinator: AttachmentReferenceCoordinator = localHistoryRepository.attachmentReferenceCoordinator()
