@@ -20,6 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 
 @RunWith(AndroidJUnit4::class)
 class ChatScreenTest {
@@ -125,6 +126,39 @@ class ChatScreenTest {
         compose.onNodeWithText("添加模型").assertIsDisplayed()
         compose.onNodeWithText("GPT-4o").performClick()
         assertEquals(model, selected)
+    }
+
+    @Test
+    fun emptyModelListShowsLargeAddModelCta() {
+        var addClicked = false
+        compose.setContent {
+            ChatScreenContent(
+                state = ChatUiState(),
+                onIntent = {},
+                availableModels = emptyList(),
+                onAddModelClick = { addClicked = true },
+            )
+        }
+        compose.onNodeWithText("＋ 添加第三方 LLM").assertIsDisplayed()
+        compose.onNodeWithTag("add-model-empty-state").assertIsDisplayed().performClick()
+        assertTrue(addClicked)
+    }
+
+    @Test
+    fun modelSwitcherLastItemOpensAddModelFlow() {
+        val model = ModelConfig("model-1", "GPT-4o", "https://example.com/v1", "gpt-4o", ProviderProtocol.OPENAI_COMPATIBLE)
+        var addClicked = false
+        compose.setContent {
+            ChatScreenContent(
+                state = ChatUiState(selectedModel = model),
+                onIntent = {},
+                availableModels = listOf(model),
+                onAddModelClick = { addClicked = true },
+            )
+        }
+        compose.onNodeWithTag("model-selector").performClick()
+        compose.onNodeWithTag("add-model-menu-item").assertIsDisplayed().performClick()
+        assertTrue(addClicked)
     }
 
     private fun message(id: String, role: Role, text: String, status: MessageStatus = MessageStatus.COMPLETED) =

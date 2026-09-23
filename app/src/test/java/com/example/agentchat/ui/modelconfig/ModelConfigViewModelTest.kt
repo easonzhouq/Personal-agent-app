@@ -113,6 +113,18 @@ class ModelConfigViewModelTest {
         assertEquals("enabled failed", viewModel.uiState.value.saveError)
         assertTrue(config.id !in viewModel.uiState.value.operationIds)
     }
+
+    @Test
+    fun successfulSavePublishesSavedConfigId() = runTest {
+        val repository = FakeModelConfigRepository()
+        val viewModel = ModelConfigViewModel(repository, FakeSecretStore(), dispatcher)
+        viewModel.updateDisplayName("OpenAI")
+        viewModel.updateBaseUrl("https://api.example.com")
+        viewModel.updateModelName("gpt-4o")
+        viewModel.save(makeDefault = true)
+        advanceUntilIdle()
+        assertEquals(repository.saved.single().id, viewModel.uiState.value.lastSavedConfigId)
+    }
 }
 
 private class FakeModelConfigRepository : ModelConfigRepository {
