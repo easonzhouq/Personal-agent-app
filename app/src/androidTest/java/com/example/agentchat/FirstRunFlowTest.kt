@@ -150,7 +150,6 @@ class FirstRunFlowTest {
     }
 
     private fun openAndUseModel() {
-        compose.onNodeWithText("选择模型").performClick()
         compose.onNodeWithText("＋ 添加第三方 LLM").performClick()
         compose.onNodeWithText("显示名称").performTextInput("Fake model")
         compose.onNodeWithText("Base URL").performTextInput("https://fake.example")
