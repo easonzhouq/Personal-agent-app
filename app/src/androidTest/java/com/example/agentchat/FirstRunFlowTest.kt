@@ -151,11 +151,13 @@ class FirstRunFlowTest {
 
     private fun openAndUseModel() {
         compose.onNodeWithText("选择模型").performClick()
+        compose.onNodeWithText("＋ 添加第三方 LLM").performClick()
         compose.onNodeWithText("显示名称").performTextInput("Fake model")
         compose.onNodeWithText("Base URL").performTextInput("https://fake.example")
         compose.onNodeWithText("模型名称").performTextInput("fake-model")
-        compose.onNodeWithText("保存并设为默认").performClick()
-        compose.onNodeWithText("使用此模型").performClick()
+        compose.onNodeWithText("保存并使用").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Fake model").assertIsDisplayed()
     }
 
     private fun onComposer() = compose.onNodeWithText("输入消息…")
