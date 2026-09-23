@@ -72,6 +72,7 @@ class AppContainer(
         attachmentReferenceCoordinator = attachmentReferenceCoordinator,
         providerForConfig = { config -> providerRegistry.providerFor(config) },
         webSearch = webSearchClient::search,
+        ragRetriever = { query, conversationId -> localHistoryRepository.retrieveRelevantMessages(query, conversationId) },
         cleanupScope = applicationScope,
     )
     val historyViewModel = HistoryViewModel(localHistoryRepository) { draftUris -> clearAllLocalData(draftUris) }

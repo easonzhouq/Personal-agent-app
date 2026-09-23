@@ -48,6 +48,7 @@ class ChatViewModel(
     private val attachmentReferenceCoordinator: AttachmentReferenceCoordinator? = null,
     private val providerForConfig: (ModelConfig) -> ModelProvider? = { provider },
     private val webSearch: (suspend (String) -> com.example.agentchat.data.search.WebSearchContext?)? = null,
+    private val ragRetriever: (suspend (String, String) -> List<ChatMessage>)? = null,
     private val cleanupScope: CoroutineScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO),
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
@@ -342,11 +343,24 @@ class ChatViewModel(
             val requestMessages = _uiState.value.messages.filterNot { it.id == assistant.id }
             val searchQuery = requestMessages.lastOrNull { it.role == Role.USER }?.text.orEmpty()
             val searchContext = webSearch?.let { search -> runCatching { search(searchQuery) }.getOrNull() }
-            val enrichedMessages = if (searchContext == null) requestMessages else requestMessages + ChatMessage(
-                id = "web-context-${assistant.id}",
+            val ragContext = ragRetriever?.let { retrieve -> runCatching { retrieve(searchQuery, assistant.conversationId) }.getOrDefault(emptyList()) }
+            val contextPrompts = listOfNotNull(
+                searchContext?.asSystemPrompt(),
+                ragContext?.takeIf { it.isNotEmpty() }?.let { messages ->
+                    buildString {
+                        appendLine("以下是从本地历史知识库召回的相关内容，仅在与问题相关时使用：")
+                        messages.forEachIndexed { index, message ->
+                            appendLine("${index + 1}. ${message.text}")
+                        }
+                        appendLine("请不要把本地召回内容当成用户当前刚刚说的话，也不要编造缺失信息。")
+                    }
+                },
+            )
+            val enrichedMessages = if (contextPrompts.isEmpty()) requestMessages else requestMessages + ChatMessage(
+                id = "context-${assistant.id}",
                 conversationId = assistant.conversationId,
                 role = Role.SYSTEM,
-                text = searchContext.asSystemPrompt(),
+                text = contextPrompts.joinToString("\n\n"),
                 status = MessageStatus.COMPLETED,
             )
             val activeProvider = selectedProvider ?: providerForConfig(config)

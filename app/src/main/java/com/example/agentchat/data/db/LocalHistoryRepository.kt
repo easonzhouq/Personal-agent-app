@@ -46,6 +46,24 @@ class LocalHistoryRepository(
 
     override suspend fun search(query: String): List<Conversation> = conversations.search(query).map { it.toDomain() }
 
+    suspend fun retrieveRelevantMessages(query: String, excludeConversationId: String, limit: Int = 6): List<ChatMessage> {
+        val terms = queryTerms(query)
+        if (terms.isEmpty()) return emptyList()
+        return messages.findRecentCompleted(500)
+            .asSequence()
+            .filter { it.conversationId != excludeConversationId && it.text.isNotBlank() }
+            .map { entity ->
+                val normalized = entity.text.lowercase()
+                val score = terms.count { term -> normalized.contains(term) }
+                entity to score
+            }
+            .filter { it.second > 0 }
+            .sortedWith(compareByDescending<Pair<MessageEntity, Int>> { it.second }.thenByDescending { it.first.createdAt })
+            .take(limit)
+            .map { it.first.toDomain(emptyList()) }
+            .toList()
+    }
+
     suspend fun countAttachmentReferences(contentUri: String): Int = attachments.countByContentUri(contentUri)
 
     fun attachmentReferenceCoordinator() = references
@@ -129,6 +147,14 @@ class LocalHistoryRepository(
         status = status.toStatusOrDefault(),
         createdAt = createdAt,
     )
+
+    private fun queryTerms(value: String): Set<String> {
+        val lower = value.lowercase()
+        val cjk = lower.filter { it in '\u4e00'..'\u9fff' }
+        val cjkTerms = cjk.windowed(size = 2, step = 1, partialWindows = false).toSet()
+        val latinTerms = Regex("[a-z0-9]{2,}").findAll(lower).map { it.value }.toSet()
+        return cjkTerms + latinTerms
+    }
 
     private fun ChatMessage.toEntity(createdAt: Long) = MessageEntity(
         id, conversationId, role.name, text, status.name, createdAt,

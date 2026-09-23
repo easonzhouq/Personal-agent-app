@@ -18,6 +18,9 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE id = :id LIMIT 1")
     suspend fun findById(id: String): MessageEntity?
 
+    @Query("SELECT * FROM messages WHERE status = 'COMPLETED' ORDER BY createdAt DESC LIMIT :limit")
+    suspend fun findRecentCompleted(limit: Int): List<MessageEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(message: MessageEntity)
 
