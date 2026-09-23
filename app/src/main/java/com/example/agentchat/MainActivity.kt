@@ -23,7 +23,7 @@ import com.example.agentchat.data.voice.VoiceInputState
 import com.example.agentchat.ui.chat.ChatIntent
 import com.example.agentchat.ui.chat.ChatScreen
 import com.example.agentchat.ui.history.HistoryScreen
-import com.example.agentchat.ui.modelconfig.ModelConfigScreen
+import com.example.agentchat.ui.modelconfig.ModelConfigDialog
 import com.example.agentchat.ui.theme.AgentChatTheme
 import kotlinx.coroutines.launch
 
@@ -42,6 +42,11 @@ internal fun AgentChatContent(container: AppContainer) {
             val configState by container.modelConfigViewModel.uiState.collectAsState()
             val chatState by container.chatViewModel.uiState.collectAsState()
             var page by remember { mutableStateOf(Page.CHAT) }
+            var showModelConfig by remember { mutableStateOf(false) }
+            val openModelConfig = {
+                container.modelConfigViewModel.resetForm()
+                showModelConfig = true
+            }
             val voiceController = container.voiceInputController
             val voiceState by voiceController.state.collectAsState()
             val voiceError by voiceController.errorMessage.collectAsState()
@@ -69,6 +74,17 @@ internal fun AgentChatContent(container: AppContainer) {
                 }
             }
 
+            LaunchedEffect(configState.lastSavedConfigId, configState.configs) {
+                val savedConfig = configState.lastSavedConfigId?.let { id ->
+                    configState.configs.firstOrNull { it.id == id }
+                }
+                if (savedConfig != null) {
+                    container.chatViewModel.setModel(savedConfig, container.providerRegistry.providerFor(savedConfig))
+                    container.modelConfigViewModel.consumeLastSavedConfigId()
+                    showModelConfig = false
+                }
+            }
+
             DisposableEffect(voiceController, lifecycleOwner) {
                 val observer = VoiceInputLifecycleObserver(voiceController)
                 lifecycleOwner?.lifecycle?.addObserver(observer)
@@ -93,12 +109,12 @@ internal fun AgentChatContent(container: AppContainer) {
             when (page) {
                 Page.CHAT -> ChatScreen(
                     viewModel = container.chatViewModel,
-                    onModelClick = { page = Page.MODELS },
+                    onModelClick = openModelConfig,
                     availableModels = configState.configs.filter { it.enabled },
                     onModelSelected = { config ->
                         container.chatViewModel.setModel(config, container.providerRegistry.providerFor(config))
                     },
-                    onAddModelClick = { page = Page.MODELS },
+                    onAddModelClick = openModelConfig,
                     onHistoryClick = { page = Page.HISTORY },
                     onNewConversation = { container.applicationScope.launch { container.chatViewModel.startNewConversation() } },
                     onAttachmentClick = pickAttachments,
@@ -108,15 +124,6 @@ internal fun AgentChatContent(container: AppContainer) {
                     onVoicePressStart = startVoice,
                     onVoicePressEnd = { voiceController.stop() },
                     onVoiceCancel = { voiceController.cancel() },
-                )
-                Page.MODELS -> ModelConfigScreen(
-                    viewModel = container.modelConfigViewModel,
-                    providerRegistry = container.providerRegistry,
-                    onUse = { config ->
-                        container.chatViewModel.setModel(config, container.providerRegistry.providerFor(config))
-                        page = Page.CHAT
-                    },
-                    onBack = { page = Page.CHAT },
                 )
                 Page.HISTORY -> HistoryScreen(
                     viewModel = container.historyViewModel,
@@ -134,8 +141,20 @@ internal fun AgentChatContent(container: AppContainer) {
                     onBack = { page = Page.CHAT },
                 )
             }
+            if (showModelConfig) {
+                ModelConfigDialog(
+                    viewModel = container.modelConfigViewModel,
+                    providerRegistry = container.providerRegistry,
+                    onUse = { config ->
+                        container.chatViewModel.setModel(config, container.providerRegistry.providerFor(config))
+                        container.modelConfigViewModel.consumeLastSavedConfigId()
+                        showModelConfig = false
+                    },
+                    onDismiss = { if (!configState.isSaving) showModelConfig = false },
+                )
+            }
         }
     }
 }
 
-private enum class Page { CHAT, MODELS, HISTORY }
+private enum class Page { CHAT, HISTORY }
