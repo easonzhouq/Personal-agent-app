@@ -7,6 +7,8 @@
         android:allowBackup="false"
         android:name=".AgentChatApplication"
         android:label="Agent Chat"
+        android:icon="@drawable/app_icon"
+        android:roundIcon="@drawable/app_icon"
         android:supportsRtl="true"
         android:theme="@style/Theme.AgentChat">
         <activity

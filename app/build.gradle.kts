@@ -1,12 +1,3 @@
-import java.util.Properties
-
-val localProperties = Properties()
-val localPropertiesFile = rootProject.file("local.properties")
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.inputStream().use { localProperties.load(it) }
-}
-val tavilyApiKey = localProperties.getProperty("TAVILY_API_KEY", "")
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -33,11 +24,6 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true
-    }
-
-    defaultConfig {
-        buildConfigField("String", "TAVILY_API_KEY", "\"${tavilyApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     packaging {

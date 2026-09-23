@@ -8,13 +8,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.encodeToString
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 
 data class WebSearchContext(
     val query: String,
@@ -36,59 +31,32 @@ data class WebSearchContext(
 }
 
 class WebSearchClient(
-    private val apiKey: String,
     private val client: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
     suspend fun search(query: String): WebSearchContext? = withContext(Dispatchers.IO) {
         if (!shouldSearch(query)) return@withContext null
-        if (isWeatherQuery(query)) {
-            searchWeather(query) ?: apiKey.takeIf { it.isNotBlank() }?.let { searchTavily(query) }
-        } else if (apiKey.isNotBlank()) {
-            searchTavily(query)
-        } else {
-            null
-        }
+        if (isWeatherQuery(query)) searchWeather(query) ?: searchDuckDuckGo(query)
+        else searchDuckDuckGo(query)
     }
 
-    private fun searchTavily(query: String): WebSearchContext? {
-        val requestJson = buildJsonObject {
-            put("api_key", apiKey)
-            put("query", query)
-            put("search_depth", "advanced")
-            put("topic", "general")
-            put("max_results", 5)
-            put("include_answer", true)
-            put("include_raw_content", false)
-        }
-        val request = Request.Builder()
-            .url("https://api.tavily.com/search")
-            .header("Accept", "application/json")
-            .post(json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), requestJson).toRequestBody("application/json".toMediaType()))
-            .build()
-        val root = runCatching {
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@use null
-                response.body?.string()?.let { json.parseToJsonElement(it).jsonObject }
+    private fun searchDuckDuckGo(query: String): WebSearchContext? {
+        val root = getJson("https://api.duckduckgo.com/?q=${encode(query)}&format=json&no_html=1&skip_disambig=1") ?: return null
+        val abstractText = root["AbstractText"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        val abstractUrl = root["AbstractURL"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        val heading = root["Heading"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        val related = root["RelatedTopics"]?.jsonArray.orEmpty().firstNotNullOfOrNull { item ->
+            item.jsonObject["Text"]?.jsonPrimitive?.contentOrNull?.let { text ->
+                text to item.jsonObject["FirstURL"]?.jsonPrimitive?.contentOrNull
             }
-        }.getOrNull() ?: return null
-        val answer = root["answer"]?.jsonPrimitive?.contentOrNull.orEmpty()
-        val results = root["results"]?.jsonArray.orEmpty().mapNotNull { item ->
-            val result = item.jsonObject
-            val title = result["title"]?.jsonPrimitive?.contentOrNull.orEmpty()
-            val content = result["content"]?.jsonPrimitive?.contentOrNull.orEmpty()
-            val url = result["url"]?.jsonPrimitive?.contentOrNull
-            if (title.isBlank() && content.isBlank()) null else Triple(title, content, url)
         }
-        if (answer.isBlank() && results.isEmpty()) return null
-        val summary = buildString {
-            if (answer.isNotBlank()) appendLine("Tavily 摘要：$answer")
-            results.forEachIndexed { index, result ->
-                appendLine("${index + 1}. ${result.first}")
-                if (result.second.isNotBlank()) appendLine(result.second)
-            }
-        }.trim()
-        return WebSearchContext(query, summary, results.mapNotNull { it.third })
+        val summary = when {
+            abstractText.isNotBlank() -> listOfNotNull(heading.takeIf { it.isNotBlank() }, abstractText).joinToString("：")
+            related != null -> related.first
+            else -> return null
+        }
+        val sources = listOfNotNull(abstractUrl.takeIf { it.isNotBlank() }, related?.second)
+        return WebSearchContext(query, summary, sources)
     }
 
     private fun searchWeather(query: String): WebSearchContext? {
