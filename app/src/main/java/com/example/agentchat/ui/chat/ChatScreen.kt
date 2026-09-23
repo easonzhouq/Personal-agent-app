@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
@@ -23,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -102,8 +104,14 @@ fun ChatScreenContent(
     onNewConversation: () -> Unit = {},
 ) {
     var showModelSheet by remember { mutableStateOf(false) }
+    val messageListState = rememberLazyListState()
     val attachmentReason = state.selectedModel?.let { AttachmentValidator.validate(state.attachments, it).reason }
     val attachmentError = attachmentReason?.let { it.displayMessage() }
+    LaunchedEffect(state.messages.size, state.messages.lastOrNull()?.id, state.messages.lastOrNull()?.text) {
+        if (state.messages.isNotEmpty()) {
+            messageListState.scrollToItem(state.messages.lastIndex)
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -164,7 +172,10 @@ fun ChatScreenContent(
                 if (availableModels.isEmpty()) {
                     AddModelCta(onClick = onAddModelClick)
                 }
-                LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp)) {
+                LazyColumn(
+                    state = messageListState,
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp),
+                ) {
                     items(state.messages, key = { it.id }) { message -> MessageBubble(message, onRetry = { onIntent(ChatIntent.RetryAssistant(message.id)) }) }
                 }
             }
