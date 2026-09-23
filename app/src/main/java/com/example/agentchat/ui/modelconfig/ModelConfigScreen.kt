@@ -36,16 +36,37 @@ import com.example.agentchat.data.provider.ProviderRegistry
 import com.example.agentchat.data.provider.ConnectionResult
 
 @Composable
-fun ModelConfigScreen(viewModel: ModelConfigViewModel, providerRegistry: ProviderRegistry, onUse: (com.example.agentchat.domain.model.ModelConfig) -> Unit = {}, onBack: () -> Unit = {}, inDialog: Boolean = false) {
+fun ModelConfigScreen(viewModel: ModelConfigViewModel, providerRegistry: ProviderRegistry = ProviderRegistry(), onUse: (com.example.agentchat.domain.model.ModelConfig) -> Unit = {}, onBack: () -> Unit = {}, inDialog: Boolean = false) {
     val state by viewModel.uiState.collectAsState()
     var apiKeyInput by remember(state.editingId) { mutableStateOf("") }
     Column((if (inDialog) Modifier.heightIn(max = 640.dp).verticalScroll(rememberScrollState()) else Modifier).padding(16.dp)) {
-        Row(Modifier.fillMaxWidth()) { Text("模型配置"); Button(onClick = viewModel::resetForm, enabled = !state.isSaving) { Text("新建配置") }; Button(onClick = onBack, enabled = !state.isSaving, modifier = Modifier.padding(start = 16.dp)) { Text("返回") } }
-        OutlinedTextField(state.displayName, viewModel::updateDisplayName, enabled = !state.isSaving, label = { Text("显示名称") })
-        OutlinedTextField(state.baseUrl, viewModel::updateBaseUrl, enabled = !state.isSaving, label = { Text("Base URL") })
-        OutlinedTextField(state.modelName, viewModel::updateModelName, enabled = !state.isSaving, label = { Text("模型名称") })
-        OutlinedTextField(apiKeyInput, { apiKeyInput = it; viewModel.updateApiKey(it) }, enabled = !state.isSaving, label = { Text("API Key") }, placeholder = { Text(state.apiKeyMasked) }, visualTransformation = PasswordVisualTransformation())
-        Row {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(if (inDialog) "添加模型" else "模型配置")
+            if (inDialog) {
+                androidx.compose.material3.TextButton(
+                    onClick = onBack,
+                    enabled = !state.isSaving,
+                ) { Text("取消") }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = viewModel::resetForm, enabled = !state.isSaving) { Text("新建配置") }
+                    androidx.compose.material3.TextButton(onClick = onBack, enabled = !state.isSaving) { Text("返回") }
+                }
+            }
+        }
+        OutlinedTextField(state.displayName, viewModel::updateDisplayName, modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving, label = { Text("显示名称") })
+        OutlinedTextField(state.baseUrl, viewModel::updateBaseUrl, modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving, label = { Text("Base URL") })
+        OutlinedTextField(state.modelName, viewModel::updateModelName, modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving, label = { Text("模型名称") })
+        OutlinedTextField(apiKeyInput, { apiKeyInput = it; viewModel.updateApiKey(it) }, modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving, label = { Text("API Key") }, placeholder = { Text(state.apiKeyMasked) }, visualTransformation = PasswordVisualTransformation())
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
             Checkbox(state.supportsVision, viewModel::updateSupportsVision, enabled = !state.isSaving)
             Text("支持图片")
             Checkbox(state.supportsFiles, viewModel::updateSupportsFiles, enabled = !state.isSaving)
@@ -86,10 +107,14 @@ fun ModelConfigScreen(viewModel: ModelConfigViewModel, providerRegistry: Provide
         }
         state.validationErrors.forEach { Text(it) }
         state.saveError?.let { Text(it) }
-        Button(onClick = { viewModel.save(makeDefault = true) }, enabled = !state.isSaving) { Text(if (inDialog) "保存并使用" else "保存并设为默认") }
-        if (inDialog) {
-            state.configs.forEach { config -> ConfigRow(config, state, viewModel, providerRegistry, onUse) }
-        } else LazyColumn { items(state.configs, key = { it.id }) { config ->
+        Button(
+            onClick = { viewModel.save(makeDefault = true) },
+            enabled = !state.isSaving,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+        ) { Text(if (inDialog) "保存并使用" else "保存并设为默认") }
+        if (!inDialog) LazyColumn { items(state.configs, key = { it.id }) { config ->
             ConfigRow(config, state, viewModel, providerRegistry, onUse)
         } }
     }

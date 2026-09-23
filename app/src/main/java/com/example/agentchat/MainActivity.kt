@@ -144,12 +144,6 @@ internal fun AgentChatContent(container: AppContainer) {
             if (showModelConfig) {
                 ModelConfigDialog(
                     viewModel = container.modelConfigViewModel,
-                    providerRegistry = container.providerRegistry,
-                    onUse = { config ->
-                        container.chatViewModel.setModel(config, container.providerRegistry.providerFor(config))
-                        container.modelConfigViewModel.consumeLastSavedConfigId()
-                        showModelConfig = false
-                    },
                     onDismiss = { if (!configState.isSaving) showModelConfig = false },
                 )
             }

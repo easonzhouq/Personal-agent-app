@@ -8,14 +8,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.shape.RoundedCornerShape
-import com.example.agentchat.data.provider.ProviderRegistry
-import com.example.agentchat.domain.model.ModelConfig
-
 @Composable
 fun ModelConfigDialog(
     viewModel: ModelConfigViewModel,
-    providerRegistry: ProviderRegistry,
-    onUse: (ModelConfig) -> Unit,
     onDismiss: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -26,8 +21,6 @@ fun ModelConfigDialog(
         ) {
             ModelConfigScreen(
                 viewModel = viewModel,
-                providerRegistry = providerRegistry,
-                onUse = onUse,
                 onBack = onDismiss,
                 inDialog = true,
             )
