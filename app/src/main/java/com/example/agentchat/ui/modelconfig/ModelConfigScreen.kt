@@ -39,7 +39,7 @@ import com.example.agentchat.data.provider.ConnectionResult
 fun ModelConfigScreen(viewModel: ModelConfigViewModel, providerRegistry: ProviderRegistry = ProviderRegistry(), onUse: (com.example.agentchat.domain.model.ModelConfig) -> Unit = {}, onBack: () -> Unit = {}, inDialog: Boolean = false) {
     val state by viewModel.uiState.collectAsState()
     var apiKeyInput by remember(state.editingId) { mutableStateOf("") }
-    Column((if (inDialog) Modifier.heightIn(max = 640.dp).verticalScroll(rememberScrollState()) else Modifier).padding(16.dp)) {
+    Column((if (inDialog) Modifier.heightIn(max = 720.dp).verticalScroll(rememberScrollState()) else Modifier).padding(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
