@@ -6,7 +6,6 @@ import android.security.keystore.KeyProperties
 import java.nio.ByteBuffer
 import java.security.GeneralSecurityException
 import java.security.KeyStore
-import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.spec.GCMParameterSpec
@@ -57,8 +56,11 @@ class KeystoreSecretStore(context: Context) : SecretStore {
     private fun encrypt(configId: String, apiKey: String): String {
         return try {
             val cipher = Cipher.getInstance(TRANSFORMATION)
-            val iv = ByteArray(IV_LENGTH_BYTES).also(secureRandom::nextBytes)
-            cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey(), GCMParameterSpec(TAG_LENGTH_BITS, iv))
+            // Let Android Keystore generate the IV. Passing a caller-provided
+            // nonce is rejected by Keystore unless caller nonces are explicitly
+            // allowed, which weakens the safety guarantee of GCM.
+            cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+            val iv = cipher.iv
             cipher.updateAAD(configId.toByteArray(Charsets.UTF_8))
             val ciphertext = cipher.doFinal(apiKey.toByteArray(Charsets.UTF_8))
             android.util.Base64.encodeToString(
@@ -92,22 +94,23 @@ class KeystoreSecretStore(context: Context) : SecretStore {
     private fun getOrCreateKey(): java.security.Key {
         try {
             val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-            if (!keyStore.containsAlias(KEY_ALIAS)) {
-                KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE).apply {
-                    init(
-                        KeyGenParameterSpec.Builder(
-                            KEY_ALIAS,
-                            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
-                        )
-                            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                            .setKeySize(KEY_SIZE_BITS)
-                            .build(),
+            keyStore.getKey(KEY_ALIAS, null)?.let { return it }
+
+            // AndroidKeyStore may not refresh an already-loaded KeyStore instance
+            // immediately after generateKey(). Return the generated key directly
+            // so the first API-key save succeeds on a fresh install/emulator.
+            return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE).apply {
+                init(
+                    KeyGenParameterSpec.Builder(
+                        KEY_ALIAS,
+                        KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
                     )
-                    generateKey()
-                }
-            }
-            return requireNotNull(keyStore.getKey(KEY_ALIAS, null))
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setKeySize(KEY_SIZE_BITS)
+                        .build(),
+                )
+            }.generateKey()
         } catch (error: Exception) {
             throw SecretStoreException.KeyStoreUnavailable(error)
         }
@@ -130,6 +133,5 @@ class KeystoreSecretStore(context: Context) : SecretStore {
         private const val KEY_SIZE_BITS = 256
         private const val IV_LENGTH_BYTES = 12
         private const val TAG_LENGTH_BITS = 128
-        private val secureRandom = SecureRandom()
     }
 }
