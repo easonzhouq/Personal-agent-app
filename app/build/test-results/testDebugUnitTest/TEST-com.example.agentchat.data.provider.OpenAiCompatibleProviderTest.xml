@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.agentchat.data.provider.OpenAiCompatibleProviderTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-23T01:40:55.998Z" hostname="shaizhouyicheng.local" time="0.256">
+  <properties/>
+  <testcase name="mapsUnauthorizedAndRateLimitWithoutExposingResponseBody" classname="com.example.agentchat.data.provider.OpenAiCompatibleProviderTest" time="0.212"/>
+  <testcase name="encodesAttachmentsOrReturnsUnsupportedAttachment" classname="com.example.agentchat.data.provider.OpenAiCompatibleProviderTest" time="0.017"/>
+  <testcase name="cancellationCancelsRequest" classname="com.example.agentchat.data.provider.OpenAiCompatibleProviderTest" time="0.009"/>
+  <testcase name="cancellationAfterFirstDeltaCancelsOpenResponseWithoutLateCompletion" classname="com.example.agentchat.data.provider.OpenAiCompatibleProviderTest" time="0.008"/>
+  <testcase name="postsNormalizedPathAuthModelStreamAndOrderedRoles" classname="com.example.agentchat.data.provider.OpenAiCompatibleProviderTest" time="0.007"/>
+  <testcase name="encoderReadFailureIsTypedAndDoesNotSendSecretsOrFileData" classname="com.example.agentchat.data.provider.OpenAiCompatibleProviderTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,210 @@
+package com.example.agentchat.ui.chat
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
+import com.example.agentchat.data.attachment.AttachmentValidator
+import com.example.agentchat.data.attachment.AttachmentValidationReason
+import com.example.agentchat.data.voice.VoiceInputState
+import com.example.agentchat.domain.model.ModelConfig
+
+@Composable
+fun ChatScreen(
+    viewModel: ChatViewModel,
+    onModelClick: () -> Unit = {},
+    availableModels: List<ModelConfig> = emptyList(),
+    onModelSelected: (ModelConfig) -> Unit = {},
+    onAddModelClick: () -> Unit = onModelClick,
+    onHistoryClick: () -> Unit = {},
+    onNewConversation: () -> Unit = {},
+    onAttachmentClick: () -> Unit = {},
+    onVoiceClick: () -> Unit = {},
+    onVoicePressStart: (() -> Unit)? = null,
+    onVoicePressEnd: () -> Unit = {},
+    onVoiceCancel: () -> Unit = {},
+    voiceInputState: VoiceInputState = VoiceInputState.IDLE,
+    voiceError: String? = null,
+) {
+    val state by viewModel.uiState.collectAsState()
+    ChatScreenContent(
+        state = state,
+        onIntent = { viewModel.onIntent(it) },
+        onModelClick = onModelClick,
+        availableModels = availableModels,
+        onModelSelected = onModelSelected,
+        onAddModelClick = onAddModelClick,
+        onAttachmentClick = onAttachmentClick,
+        onVoiceClick = onVoiceClick,
+        onVoicePressStart = onVoicePressStart,
+        onVoicePressEnd = onVoicePressEnd,
+        onVoiceCancel = onVoiceCancel,
+        voiceInputState = voiceInputState,
+        voiceError = voiceError,
+        onHistoryClick = onHistoryClick,
+        onNewConversation = onNewConversation,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChatScreenContent(
+    state: ChatUiState,
+    onIntent: (ChatIntent) -> Unit,
+    onModelClick: () -> Unit = {},
+    availableModels: List<ModelConfig> = emptyList(),
+    onModelSelected: (ModelConfig) -> Unit = {},
+    onAddModelClick: () -> Unit = onModelClick,
+    onAttachmentClick: () -> Unit = {},
+    onVoiceClick: () -> Unit = {},
+    onVoicePressStart: (() -> Unit)? = null,
+    onVoicePressEnd: () -> Unit = {},
+    onVoiceCancel: () -> Unit = {},
+    voiceInputState: VoiceInputState = VoiceInputState.IDLE,
+    voiceError: String? = null,
+    onHistoryClick: () -> Unit = {},
+    onNewConversation: () -> Unit = {},
+) {
+    var showModelSheet by remember { mutableStateOf(false) }
+    val attachmentReason = state.selectedModel?.let { AttachmentValidator.validate(state.attachments, it).reason }
+    val attachmentError = attachmentReason?.let { it.displayMessage() }
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                FilledTonalButton(
+                    onClick = { if (availableModels.isEmpty()) onModelClick() else showModelSheet = true },
+                    modifier = Modifier.testTag("model-selector"),
+                ) {
+                    Text(state.selectedModel?.displayName ?: "选择模型")
+                    Text(" ⌄")
+                }
+                Text("Agent Chat", style = MaterialTheme.typography.titleMedium)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                TextButton(onClick = onNewConversation) { Text("新会话") }
+                TextButton(onClick = onHistoryClick) { Text("历史") }
+            }
+        }
+        if (state.isStreaming) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (state.messages.isEmpty()) {
+            Surface(Modifier.weight(1f).fillMaxWidth()) {
+                Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Text("开始一段新的对话", style = MaterialTheme.typography.titleMedium)
+                    Text("选择模型后，在下方输入消息", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        } else {
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp)) {
+                items(state.messages, key = { it.id }) { message -> MessageBubble(message, onRetry = { onIntent(ChatIntent.RetryAssistant(message.id)) }) }
+            }
+        }
+        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp)) }
+        Composer(
+            draft = state.draft,
+            isStreaming = state.isStreaming,
+            attachments = state.attachments,
+            onDraftChanged = { onIntent(ChatIntent.DraftChanged(it)) },
+            onSend = { onIntent(if (state.isStreaming) ChatIntent.Stop else ChatIntent.Send) },
+            onAttachmentClick = onAttachmentClick,
+            onVoiceClick = onVoiceClick,
+            onVoicePressStart = onVoicePressStart,
+            onVoicePressEnd = onVoicePressEnd,
+            onVoiceCancel = onVoiceCancel,
+            voiceInputState = voiceInputState,
+            voiceError = voiceError,
+            onRemoveAttachment = { onIntent(ChatIntent.RemoveAttachment(it)) },
+            sendDisabledReason = attachmentError,
+        )
+    }
+
+    if (showModelSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showModelSheet = false },
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(),
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
+            ) {
+                Text(
+                    "切换模型",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+                availableModels.forEach { model ->
+                    val selected = model.id == state.selectedModel?.id
+                    ListItem(
+                        headlineContent = { Text(if (selected) "✓ ${model.displayName}" else model.displayName) },
+                        supportingContent = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                AssistChip(onClick = {}, label = { Text(model.protocol.name) })
+                                if (model.supportsVision) AssistChip(onClick = {}, label = { Text("图片") })
+                                if (model.supportsFiles) AssistChip(onClick = {}, label = { Text("文件") })
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("model-option-${model.id}")
+                            .clickable {
+                                onModelSelected(model)
+                                showModelSheet = false
+                            },
+                        tonalElevation = if (selected) 2.dp else 0.dp,
+                    )
+                    androidx.compose.material3.HorizontalDivider()
+                }
+                TextButton(
+                    onClick = {
+                        showModelSheet = false
+                        onAddModelClick()
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                ) { Text("＋ 添加模型") }
+            }
+        }
+    }
+}
+
+private fun AttachmentValidationReason.displayMessage() = when (this) {
+    AttachmentValidationReason.EMPTY_URI -> "附件 URI 为空"
+    AttachmentValidationReason.UNKNOWN_MIME -> "附件类型不支持"
+    AttachmentValidationReason.DUPLICATE_URI -> "不能重复添加同一附件"
+    AttachmentValidationReason.SIZE_UNAVAILABLE -> "无法读取附件大小"
+    AttachmentValidationReason.TOO_LARGE -> "附件不能超过 10 MiB"
+    AttachmentValidationReason.TOO_MANY -> "最多添加 5 个附件"
+    AttachmentValidationReason.MODEL_UNSUPPORTED -> "当前模型不支持此附件类型"
+}

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.agentchat.ui.chat.ChatViewModelTest" tests="27" skipped="0" failures="0" errors="0" timestamp="2026-09-23T01:40:56.297Z" hostname="shaizhouyicheng.local" time="0.168">
+  <properties/>
+  <testcase name="stopThenResendKeepsOldDeltaOutOfNewRequest" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.017"/>
+  <testcase name="attachmentsSelectedMergesWithoutReplacingExistingAndReportsDuplicates" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.003"/>
+  <testcase name="disabledConfigClearsSelectedModelAndProvider" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.002"/>
+  <testcase name="retryUsesOriginalUserAttachmentsAndReleasesOnlyAfterSuccess" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.005"/>
+  <testcase name="removingDraftSharedWithHistoryDoesNotReleaseUntilHistoryReferenceIsGone" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.004"/>
+  <testcase name="providerFlowEndingWithoutTerminalEventFailsAssistant" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.005"/>
+  <testcase name="consecutiveSendsStayInOneConversation" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.003"/>
+  <testcase name="successfulSendClearsAttachmentsAfterPersistingThem" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.006"/>
+  <testcase name="failedSendRetainsDraftAndAttachments" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.006"/>
+  <testcase name="reconciliationFailureRejectsHistoryLoadAndNewConversation" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.013"/>
+  <testcase name="retryPersistenceFailureRestoresDraftAndUnlocksNextRetry" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.004"/>
+  <testcase name="reconciliationFailureKeepsMemoryMessageAndClearsStreamingState" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.004"/>
+  <testcase name="loadingHistoryReleasesDraftUriOnlyWhenHistoryHasNoReference" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.005"/>
+  <testcase name="sendPersistsNormalizedIdsAndStreamsInMessageOrder" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.005"/>
+  <testcase name="stopDuringAssistantAppendPersistsCancelledInsteadOfStreaming" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.003"/>
+  <testcase name="loadingHistoryPersistsActiveAssistantAsCancelledBeforeShowingHistory" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.005"/>
+  <testcase name="localDataClearPreparePreservesStateUntilCommit" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.003"/>
+  <testcase name="selectingMoreThanFiveAttachmentsKeepsOnlyFirstFiveAndReportsLimit" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.007"/>
+  <testcase name="everyDeltaPersistsAssistantTextAndStreamingStatus" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.003"/>
+  <testcase name="switchedDefaultConfigIsUsedForTheNextSend" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.005"/>
+  <testcase name="repeatedSendWhileStreamingIsIgnored" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.008"/>
+  <testcase name="attachmentMergeCapsAtFiveAndHandlesDuplicateAtBoundary" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.006"/>
+  <testcase name="failedSendKeepsDraftAndRetryCanComplete" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.006"/>
+  <testcase name="loadingHistoryDuringUserAppendMarksPersistedUserFailedBeforeSwitch" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.008"/>
+  <testcase name="loadingHistoryInvalidatesActiveStream" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.012"/>
+  <testcase name="userMessageIsVisibleWithNormalizedIdBeforeProviderCompletes" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.011"/>
+  <testcase name="stopMarksAssistantCancelledAndDoesNotLeaveStreaming" classname="com.example.agentchat.ui.chat.ChatViewModelTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
