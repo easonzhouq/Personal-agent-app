@@ -47,6 +47,7 @@ class ChatViewModel(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val attachmentReferenceCoordinator: AttachmentReferenceCoordinator? = null,
     private val providerForConfig: (ModelConfig) -> ModelProvider? = { provider },
+    private val webSearch: (suspend (String) -> com.example.agentchat.data.search.WebSearchContext?)? = null,
     private val cleanupScope: CoroutineScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO),
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
@@ -339,12 +340,21 @@ class ChatViewModel(
         try {
             val apiKey = withContext(ioDispatcher) { secretStore.getApiKey(config.id) }.orEmpty()
             val requestMessages = _uiState.value.messages.filterNot { it.id == assistant.id }
+            val searchQuery = requestMessages.lastOrNull { it.role == Role.USER }?.text.orEmpty()
+            val searchContext = webSearch?.let { search -> runCatching { search(searchQuery) }.getOrNull() }
+            val enrichedMessages = if (searchContext == null) requestMessages else requestMessages + ChatMessage(
+                id = "web-context-${assistant.id}",
+                conversationId = assistant.conversationId,
+                role = Role.SYSTEM,
+                text = searchContext.asSystemPrompt(),
+                status = MessageStatus.COMPLETED,
+            )
             val activeProvider = selectedProvider ?: providerForConfig(config)
             if (activeProvider == null) {
                 finishAssistant(token, assistant.id, assistantText, MessageStatus.FAILED, "当前协议暂不支持")
                 return
             }
-            activeProvider.stream(config, apiKey, requestMessages).collect { event ->
+            activeProvider.stream(config, apiKey, enrichedMessages).collect { event ->
                 if (!isCurrent(token) || terminal) return@collect
                 when (event) {
                     ChatEvent.Started -> Unit

@@ -56,6 +56,7 @@ class AnthropicProvider(
                 put("model", config.modelName)
                 put("max_tokens", MAX_TOKENS)
                 put("stream", true)
+                messages.firstOrNull { it.role.name.equals("SYSTEM", true) }?.text?.let { put("system", it) }
                 putJsonArray("messages") {
                     messages.filter { it.role.name.equals("USER", true) || it.role.name.equals("ASSISTANT", true) }
                         .forEach { message ->
