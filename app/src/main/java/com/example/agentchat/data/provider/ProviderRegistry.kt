@@ -25,6 +25,7 @@ class ProviderRegistry(
 
     fun providerFor(config: ModelConfig): ModelProvider? = providerFactory?.invoke(config) ?: when (config.protocol) {
         ProviderProtocol.OPENAI_COMPATIBLE -> OpenAiCompatibleProvider(client = client, attachmentEncoder = attachmentEncoder, contentResolver = contentResolver)
+        ProviderProtocol.ANTHROPIC -> AnthropicProvider(client = client)
         else -> null
     }
 

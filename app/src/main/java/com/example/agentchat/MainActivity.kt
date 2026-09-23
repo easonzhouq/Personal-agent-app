@@ -43,8 +43,9 @@ internal fun AgentChatContent(container: AppContainer) {
             val chatState by container.chatViewModel.uiState.collectAsState()
             var page by remember { mutableStateOf(Page.CHAT) }
             var showModelConfig by remember { mutableStateOf(false) }
-            val openModelConfig = {
-                container.modelConfigViewModel.resetForm()
+            val openModelConfig: (com.example.agentchat.domain.model.ModelConfig?) -> Unit = { config ->
+                if (config == null) container.modelConfigViewModel.resetForm()
+                else container.modelConfigViewModel.edit(config)
                 showModelConfig = true
             }
             val voiceController = container.voiceInputController
@@ -109,12 +110,13 @@ internal fun AgentChatContent(container: AppContainer) {
             when (page) {
                 Page.CHAT -> ChatScreen(
                     viewModel = container.chatViewModel,
-                    onModelClick = openModelConfig,
+                    onModelClick = { openModelConfig(null) },
                     availableModels = configState.configs.filter { it.enabled },
                     onModelSelected = { config ->
                         container.chatViewModel.setModel(config, container.providerRegistry.providerFor(config))
                     },
-                    onAddModelClick = openModelConfig,
+                    onModelEdit = { config -> openModelConfig(config) },
+                    onAddModelClick = { openModelConfig(null) },
                     onHistoryClick = { page = Page.HISTORY },
                     onNewConversation = { container.applicationScope.launch { container.chatViewModel.startNewConversation() } },
                     onAttachmentClick = pickAttachments,

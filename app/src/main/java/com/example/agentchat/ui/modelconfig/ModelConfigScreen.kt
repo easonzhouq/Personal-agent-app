@@ -45,7 +45,7 @@ fun ModelConfigScreen(viewModel: ModelConfigViewModel, providerRegistry: Provide
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(if (inDialog) "添加模型" else "模型配置")
+            Text(if (inDialog) (if (state.editingId == null) "添加模型" else "编辑模型") else "模型配置")
             if (inDialog) {
                 androidx.compose.material3.TextButton(
                     onClick = onBack,
@@ -113,7 +113,7 @@ fun ModelConfigScreen(viewModel: ModelConfigViewModel, providerRegistry: Provide
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp),
-        ) { Text(if (inDialog) "保存并使用" else "保存并设为默认") }
+        ) { Text(if (inDialog) (if (state.editingId == null) "保存并使用" else "保存修改并使用") else "保存并设为默认") }
         if (!inDialog) LazyColumn { items(state.configs, key = { it.id }) { config ->
             ConfigRow(config, state, viewModel, providerRegistry, onUse)
         } }

@@ -48,6 +48,7 @@ fun ChatScreen(
     onModelClick: () -> Unit = {},
     availableModels: List<ModelConfig> = emptyList(),
     onModelSelected: (ModelConfig) -> Unit = {},
+    onModelEdit: (ModelConfig) -> Unit = {},
     onAddModelClick: () -> Unit = onModelClick,
     onHistoryClick: () -> Unit = {},
     onNewConversation: () -> Unit = {},
@@ -66,6 +67,7 @@ fun ChatScreen(
         onModelClick = onModelClick,
         availableModels = availableModels,
         onModelSelected = onModelSelected,
+        onModelEdit = onModelEdit,
         onAddModelClick = onAddModelClick,
         onAttachmentClick = onAttachmentClick,
         onVoiceClick = onVoiceClick,
@@ -87,6 +89,7 @@ fun ChatScreenContent(
     onModelClick: () -> Unit = {},
     availableModels: List<ModelConfig> = emptyList(),
     onModelSelected: (ModelConfig) -> Unit = {},
+    onModelEdit: (ModelConfig) -> Unit = {},
     onAddModelClick: () -> Unit = onModelClick,
     onAttachmentClick: () -> Unit = {},
     onVoiceClick: () -> Unit = {},
@@ -221,6 +224,14 @@ fun ChatScreenContent(
                                 onModelSelected(model)
                             },
                         tonalElevation = if (selected) 2.dp else 0.dp,
+                        trailingContent = {
+                            TextButton(
+                                onClick = {
+                                    showModelSheet = false
+                                    onModelEdit(model)
+                                },
+                            ) { Text("编辑") }
+                        },
                     )
                     androidx.compose.material3.HorizontalDivider()
                 }

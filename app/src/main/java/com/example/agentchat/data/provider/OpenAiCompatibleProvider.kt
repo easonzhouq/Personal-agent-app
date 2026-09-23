@@ -71,7 +71,7 @@ class OpenAiCompatibleProvider(
                 return@flow
             }
             val request = Request.Builder()
-                .url(normalizeBaseUrl(config.baseUrl) + "/chat/completions")
+                .url(chatCompletionsEndpoint(config.baseUrl))
                 .header("Authorization", "Bearer $apiKey")
                 .header("Accept", "text/event-stream")
                 .post(json.encodeToString(JsonObject.serializer(), requestJson).toRequestBody("application/json".toMediaType()))
@@ -154,6 +154,10 @@ class OpenAiCompatibleProvider(
         }.getOrDefault(false)
 
         fun normalizeBaseUrl(baseUrl: String): String = baseUrl.trimEnd('/')
+        fun chatCompletionsEndpoint(baseUrl: String): String {
+            val normalized = normalizeBaseUrl(baseUrl)
+            return if (normalized.endsWith("/chat/completions")) normalized else "$normalized/chat/completions"
+        }
         fun production(context: Context, client: OkHttpClient = OkHttpClient()): OpenAiCompatibleProvider =
             OpenAiCompatibleProvider(client = client, contentResolver = context.applicationContext.contentResolver)
     }
