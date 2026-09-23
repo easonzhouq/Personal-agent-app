@@ -127,12 +127,6 @@ fun ChatScreenContent(
                     }
                 } else {
                     Text("Agent Chat", style = MaterialTheme.typography.titleMedium)
-                    TextButton(
-                        onClick = onAddModelClick,
-                        modifier = Modifier.semantics {
-                            contentDescription = "添加模型"
-                        },
-                    ) { Text("添加模型") }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -147,16 +141,18 @@ fun ChatScreenContent(
                     Text("开始一段新的对话", style = MaterialTheme.typography.titleMedium)
                     Text("选择模型后，在下方输入消息", style = MaterialTheme.typography.bodyMedium)
                     if (availableModels.isEmpty()) {
-                        Button(
-                            onClick = onAddModelClick,
-                            modifier = Modifier.fillMaxWidth().testTag("add-model-empty-state"),
-                        ) { Text("＋ 添加第三方 LLM") }
+                        AddModelCta(onClick = onAddModelClick)
                     }
                 }
             }
         } else {
-            LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp)) {
-                items(state.messages, key = { it.id }) { message -> MessageBubble(message, onRetry = { onIntent(ChatIntent.RetryAssistant(message.id)) }) }
+            Column(Modifier.weight(1f).fillMaxWidth()) {
+                if (availableModels.isEmpty()) {
+                    AddModelCta(onClick = onAddModelClick)
+                }
+                LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp)) {
+                    items(state.messages, key = { it.id }) { message -> MessageBubble(message, onRetry = { onIntent(ChatIntent.RetryAssistant(message.id)) }) }
+                }
             }
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp)) }
@@ -226,10 +222,18 @@ fun ChatScreenContent(
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)
                         .testTag("add-model-menu-item"),
-                ) { Text("＋ 添加模型") }
+                ) { Text("＋ 添加新模型") }
             }
         }
     }
+}
+
+@Composable
+private fun AddModelCta(onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().testTag("add-model-empty-state"),
+    ) { Text("＋ 添加第三方 LLM") }
 }
 
 private fun AttachmentValidationReason.displayMessage() = when (this) {

@@ -123,7 +123,7 @@ class ChatScreenTest {
         compose.onNodeWithText("切换模型").assertIsDisplayed()
         compose.onNodeWithText("GPT-4o").assertIsDisplayed()
         compose.onNodeWithText("图片").assertIsDisplayed()
-        compose.onNodeWithText("添加模型").assertIsDisplayed()
+        compose.onNodeWithText("＋ 添加新模型").assertIsDisplayed()
         compose.onNodeWithText("GPT-4o").performClick()
         assertEquals(model, selected)
     }
@@ -139,6 +139,24 @@ class ChatScreenTest {
                 onAddModelClick = { addClicked = true },
             )
         }
+        compose.onNodeWithText("＋ 添加第三方 LLM").assertIsDisplayed()
+        compose.onNodeWithTag("add-model-empty-state").assertIsDisplayed().performClick()
+        assertTrue(addClicked)
+    }
+
+    @Test
+    fun noModelWithExistingMessagesStillShowsLargeAddModelCta() {
+        var addClicked = false
+        compose.setContent {
+            ChatScreenContent(
+                state = ChatUiState(messages = listOf(message("u", Role.USER, "已有消息"))),
+                onIntent = {},
+                availableModels = emptyList(),
+                onAddModelClick = { addClicked = true },
+            )
+        }
+
+        compose.onNodeWithText("已有消息").assertIsDisplayed()
         compose.onNodeWithText("＋ 添加第三方 LLM").assertIsDisplayed()
         compose.onNodeWithTag("add-model-empty-state").assertIsDisplayed().performClick()
         assertTrue(addClicked)

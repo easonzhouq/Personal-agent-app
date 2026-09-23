@@ -36,17 +36,17 @@ fun ModelConfigScreen(viewModel: ModelConfigViewModel, providerRegistry: Provide
     var apiKeyInput by remember(state.editingId) { mutableStateOf("") }
     Column((if (inDialog) Modifier.heightIn(max = 640.dp).verticalScroll(rememberScrollState()) else Modifier).padding(16.dp)) {
         Row(Modifier.fillMaxWidth()) { Text("模型配置"); Button(onClick = viewModel::resetForm, enabled = !state.isSaving) { Text("新建配置") }; Button(onClick = onBack, enabled = !state.isSaving, modifier = Modifier.padding(start = 16.dp)) { Text("返回") } }
-        OutlinedTextField(state.displayName, viewModel::updateDisplayName, label = { Text("显示名称") })
-        OutlinedTextField(state.baseUrl, viewModel::updateBaseUrl, label = { Text("Base URL") })
-        OutlinedTextField(state.modelName, viewModel::updateModelName, label = { Text("模型名称") })
-        OutlinedTextField(apiKeyInput, { apiKeyInput = it; viewModel.updateApiKey(it) }, label = { Text("API Key") }, placeholder = { Text(state.apiKeyMasked) }, visualTransformation = PasswordVisualTransformation())
+        OutlinedTextField(state.displayName, viewModel::updateDisplayName, enabled = !state.isSaving, label = { Text("显示名称") })
+        OutlinedTextField(state.baseUrl, viewModel::updateBaseUrl, enabled = !state.isSaving, label = { Text("Base URL") })
+        OutlinedTextField(state.modelName, viewModel::updateModelName, enabled = !state.isSaving, label = { Text("模型名称") })
+        OutlinedTextField(apiKeyInput, { apiKeyInput = it; viewModel.updateApiKey(it) }, enabled = !state.isSaving, label = { Text("API Key") }, placeholder = { Text(state.apiKeyMasked) }, visualTransformation = PasswordVisualTransformation())
         Row {
-            Checkbox(state.supportsVision, viewModel::updateSupportsVision)
+            Checkbox(state.supportsVision, viewModel::updateSupportsVision, enabled = !state.isSaving)
             Text("支持图片")
-            Checkbox(state.supportsFiles, viewModel::updateSupportsFiles)
+            Checkbox(state.supportsFiles, viewModel::updateSupportsFiles, enabled = !state.isSaving)
             Text("支持文本文件")
         }
-        Row { ProviderProtocol.values().forEach { protocol -> RadioButton(state.protocol == protocol, { viewModel.updateProtocol(protocol) }); Text(protocol.name) } }
+        Row { ProviderProtocol.values().forEach { protocol -> RadioButton(state.protocol == protocol, { viewModel.updateProtocol(protocol) }, enabled = !state.isSaving); Text(protocol.name) } }
         state.validationErrors.forEach { Text(it) }
         state.saveError?.let { Text(it) }
         Button(onClick = { viewModel.save(makeDefault = true) }, enabled = !state.isSaving) { Text(if (inDialog) "保存并使用" else "保存并设为默认") }
@@ -56,7 +56,7 @@ fun ModelConfigScreen(viewModel: ModelConfigViewModel, providerRegistry: Provide
             ConfigRow(config, state, viewModel, providerRegistry, onUse)
         } }
     }
-    state.confirmDeleteId?.let { AlertDialog(onDismissRequest = viewModel::cancelDelete, title = { Text("删除配置？") }, text = { Text("此操作会删除 API Key") }, confirmButton = { Button(onClick = viewModel::confirmDelete) { Text("删除") } }, dismissButton = { Button(onClick = viewModel::cancelDelete) { Text("取消") } }) }
+    state.confirmDeleteId?.let { AlertDialog(onDismissRequest = { if (!state.isSaving) viewModel.cancelDelete() }, title = { Text("删除配置？") }, text = { Text("此操作会删除 API Key") }, confirmButton = { Button(onClick = viewModel::confirmDelete, enabled = !state.isSaving) { Text("删除") } }, dismissButton = { Button(onClick = viewModel::cancelDelete, enabled = !state.isSaving) { Text("取消") } }) }
 }
 
 @Composable
