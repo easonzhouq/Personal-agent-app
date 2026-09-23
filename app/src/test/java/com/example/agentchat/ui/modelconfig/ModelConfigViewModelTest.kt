@@ -125,6 +125,21 @@ class ModelConfigViewModelTest {
         advanceUntilIdle()
         assertEquals(repository.saved.single().id, viewModel.uiState.value.lastSavedConfigId)
     }
+
+    @Test
+    fun consumingLastSavedConfigIdClearsIt() = runTest {
+        val repository = FakeModelConfigRepository()
+        val viewModel = ModelConfigViewModel(repository, FakeSecretStore(), dispatcher)
+        viewModel.updateDisplayName("OpenAI")
+        viewModel.updateBaseUrl("https://api.example.com")
+        viewModel.updateModelName("gpt-4o")
+        viewModel.save()
+        advanceUntilIdle()
+
+        viewModel.consumeLastSavedConfigId()
+
+        assertEquals(null, viewModel.uiState.value.lastSavedConfigId)
+    }
 }
 
 private class FakeModelConfigRepository : ModelConfigRepository {

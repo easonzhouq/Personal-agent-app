@@ -37,6 +37,7 @@ data class ModelConfigUiState(
     val saveError: String? = null,
     val operationIds: Set<String> = emptySet(),
     val isSaving: Boolean = false,
+    val lastSavedConfigId: String? = null,
 )
 
 class ModelConfigViewModel(
@@ -61,17 +62,21 @@ class ModelConfigViewModel(
 
     fun edit(config: ModelConfig) {
         apiKeyDraft = null
-        _uiState.value = ModelConfigUiState(configs = _uiState.value.configs, displayName = config.displayName, baseUrl = config.baseUrl, modelName = config.modelName, protocol = config.protocol, enabled = config.enabled, supportsVision = config.supportsVision, supportsFiles = config.supportsFiles, apiKeyMasked = "••••••••", editingId = config.id)
+        _uiState.value = ModelConfigUiState(configs = _uiState.value.configs, displayName = config.displayName, baseUrl = config.baseUrl, modelName = config.modelName, protocol = config.protocol, enabled = config.enabled, supportsVision = config.supportsVision, supportsFiles = config.supportsFiles, apiKeyMasked = "••••••••", editingId = config.id, lastSavedConfigId = null)
     }
 
     fun resetForm() {
         apiKeyDraft = null
-        _uiState.value = ModelConfigUiState(configs = _uiState.value.configs)
+        _uiState.value = ModelConfigUiState(configs = _uiState.value.configs, lastSavedConfigId = null)
     }
 
     fun resetState() {
         apiKeyDraft = null
-        _uiState.value = ModelConfigUiState()
+        _uiState.value = ModelConfigUiState(lastSavedConfigId = null)
+    }
+
+    fun consumeLastSavedConfigId() {
+        _uiState.update { it.copy(lastSavedConfigId = null) }
     }
 
     fun save(makeDefault: Boolean = false) {
@@ -89,7 +94,7 @@ class ModelConfigViewModel(
             try {
                 repository.save(config, apiKeySnapshot, makeDefault)
                 apiKeyDraft = null
-                _uiState.update { it.copy(apiKeyMasked = if (state.apiKeyMasked.isNotEmpty()) "••••••••" else "", editingId = config.id, validationErrors = emptyList(), saveError = null, isSaving = false) }
+                _uiState.update { it.copy(apiKeyMasked = if (state.apiKeyMasked.isNotEmpty()) "••••••••" else "", editingId = config.id, validationErrors = emptyList(), saveError = null, isSaving = false, lastSavedConfigId = config.id) }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
