@@ -7,17 +7,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
@@ -100,9 +101,13 @@ fun ChatScreenContent(
     var showModelSheet by remember { mutableStateOf(false) }
     val attachmentReason = state.selectedModel?.let { AttachmentValidator.validate(state.attachments, it).reason }
     val attachmentError = attachmentReason?.let { it.displayMessage() }
-    Column(Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -112,7 +117,7 @@ fun ChatScreenContent(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (availableModels.isNotEmpty()) {
-                    FilledTonalButton(
+                    androidx.compose.material3.TextButton(
                         onClick = { showModelSheet = true },
                         modifier = Modifier
                             .testTag("model-selector")
@@ -122,21 +127,27 @@ fun ChatScreenContent(
                                 stateDescription = if (showModelSheet) "已展开" else "已收起"
                             },
                     ) {
-                        Text(state.selectedModel?.displayName ?: "选择模型")
-                        Text(" ⌄")
+                        Text(
+                            state.selectedModel?.displayName ?: "选择模型",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text("⌄", style = MaterialTheme.typography.titleMedium)
                     }
                 } else {
-                    Text("Agent Chat", style = MaterialTheme.typography.titleMedium)
+                    Text("Agent Chat", style = MaterialTheme.typography.titleLarge)
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onNewConversation) { Text("新会话") }
                 TextButton(onClick = onHistoryClick) { Text("历史") }
             }
         }
         if (state.isStreaming) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (state.messages.isEmpty()) {
-            Surface(Modifier.weight(1f).fillMaxWidth()) {
+            Surface(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                color = MaterialTheme.colorScheme.background,
+            ) {
                 Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Text("开始一段新的对话", style = MaterialTheme.typography.titleMedium)
                     Text("选择模型后，在下方输入消息", style = MaterialTheme.typography.bodyMedium)
@@ -230,9 +241,13 @@ fun ChatScreenContent(
 
 @Composable
 private fun AddModelCta(onClick: () -> Unit) {
-    Button(
+    OutlinedButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().testTag("add-model-empty-state"),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp)
+            .testTag("add-model-empty-state"),
+        shape = RoundedCornerShape(16.dp),
     ) { Text("＋ 添加第三方 LLM") }
 }
 
