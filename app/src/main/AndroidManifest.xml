@@ -7,7 +7,7 @@
     <application
         android:allowBackup="false"
         android:name=".AgentChatApplication"
-        android:label="Agent Chat"
+        android:label="卡皮巴拉"
         android:icon="@drawable/app_icon"
         android:roundIcon="@drawable/app_icon"
         android:supportsRtl="true"
