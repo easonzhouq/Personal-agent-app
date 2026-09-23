@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -22,8 +25,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.agentchat.domain.model.ProviderProtocol
@@ -46,7 +51,39 @@ fun ModelConfigScreen(viewModel: ModelConfigViewModel, providerRegistry: Provide
             Checkbox(state.supportsFiles, viewModel::updateSupportsFiles, enabled = !state.isSaving)
             Text("支持文本文件")
         }
-        Row { ProviderProtocol.values().forEach { protocol -> RadioButton(state.protocol == protocol, { viewModel.updateProtocol(protocol) }, enabled = !state.isSaving); Text(protocol.name) } }
+        Text("API 协议", modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableGroup(),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            ProviderProtocol.values().forEach { protocol ->
+                val selected = state.protocol == protocol
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectable(
+                            selected = selected,
+                            enabled = !state.isSaving,
+                            role = Role.RadioButton,
+                            onClick = { viewModel.updateProtocol(protocol) },
+                        )
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = selected,
+                        onClick = null,
+                        enabled = !state.isSaving,
+                    )
+                    Text(
+                        protocol.displayName(),
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
+        }
         state.validationErrors.forEach { Text(it) }
         state.saveError?.let { Text(it) }
         Button(onClick = { viewModel.save(makeDefault = true) }, enabled = !state.isSaving) { Text(if (inDialog) "保存并使用" else "保存并设为默认") }
@@ -74,4 +111,11 @@ private fun connectionMessage(result: ConnectionResult) = when (result) {
     ConnectionResult.ProtocolIncompatible -> "协议不兼容"
     ConnectionResult.SecretReadFailed -> "读取 API Key 失败"
     ConnectionResult.ConnectionFailure -> "连接测试失败"
+}
+
+private fun ProviderProtocol.displayName() = when (this) {
+    ProviderProtocol.OPENAI_COMPATIBLE -> "OpenAI 兼容"
+    ProviderProtocol.ANTHROPIC -> "Anthropic"
+    ProviderProtocol.GEMINI -> "Gemini"
+    ProviderProtocol.CUSTOM -> "自定义"
 }
