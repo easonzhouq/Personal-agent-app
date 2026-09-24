@@ -14,4 +14,5 @@ data class ConfigEntity(
     val supportsVision: Boolean,
     val supportsFiles: Boolean,
     val isDefault: Boolean,
+    val profilePrompt: String = "",
 )

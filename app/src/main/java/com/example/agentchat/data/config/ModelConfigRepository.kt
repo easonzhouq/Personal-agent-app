@@ -116,6 +116,6 @@ class RoomModelConfigRepository(
         }
     }
 
-    private fun ConfigEntity.toDomain() = ModelConfig(id, displayName, baseUrl, modelName, ProviderProtocol.valueOf(protocol), enabled, supportsVision, supportsFiles, isDefault)
-    private fun ModelConfig.toEntity(default: Boolean) = ConfigEntity(id, displayName, baseUrl, modelName, protocol.name, enabled, supportsVision, supportsFiles, default || isDefault)
+    private fun ConfigEntity.toDomain() = ModelConfig(id, displayName, baseUrl, modelName, ProviderProtocol.valueOf(protocol), enabled, supportsVision, supportsFiles, isDefault, profilePrompt)
+    private fun ModelConfig.toEntity(default: Boolean) = ConfigEntity(id, displayName, baseUrl, modelName, protocol.name, enabled, supportsVision, supportsFiles, default || isDefault, profilePrompt.trim())
 }

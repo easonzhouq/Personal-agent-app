@@ -48,7 +48,7 @@ class AppContainer(
         applicationContext,
         AgentDatabase::class.java,
         DATABASE_NAME,
-    ).addMigrations(AgentDatabase.MIGRATION_1_2, AgentDatabase.MIGRATION_2_3).build()
+    ).addMigrations(AgentDatabase.MIGRATION_1_2, AgentDatabase.MIGRATION_2_3, AgentDatabase.MIGRATION_3_4).build()
     val secretStore: SecretStore = secretStoreOverride ?: KeystoreSecretStore(applicationContext)
     val attachmentEncoder = ContentResolverAttachmentEncoder(contentResolver)
     val providerRegistry: ProviderRegistry = providerRegistryOverride ?: ProviderRegistry(

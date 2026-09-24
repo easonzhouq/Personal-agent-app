@@ -61,6 +61,7 @@ fun ModelConfigScreen(viewModel: ModelConfigViewModel, providerRegistry: Provide
         OutlinedTextField(state.displayName, viewModel::updateDisplayName, modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving, label = { Text("显示名称") })
         OutlinedTextField(state.baseUrl, viewModel::updateBaseUrl, modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving, label = { Text("Base URL") })
         OutlinedTextField(state.modelName, viewModel::updateModelName, modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving, label = { Text("模型名称") })
+        OutlinedTextField(state.profilePrompt, viewModel::updateProfilePrompt, modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving, label = { Text("Agent Profile / 人设") }, placeholder = { Text("例如：你是温柔、耐心的中文顾问") }, minLines = 3)
         OutlinedTextField(apiKeyInput, { apiKeyInput = it; viewModel.updateApiKey(it) }, modifier = Modifier.fillMaxWidth(), enabled = !state.isSaving, label = { Text("API Key") }, placeholder = { Text(state.apiKeyMasked) }, visualTransformation = PasswordVisualTransformation())
         Row(
             modifier = Modifier.fillMaxWidth(),

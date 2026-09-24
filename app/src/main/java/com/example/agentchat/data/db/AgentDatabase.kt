@@ -12,7 +12,7 @@ import com.example.agentchat.data.rag.KnowledgeSourceEntity
 
 @Database(
     entities = [ConversationEntity::class, MessageEntity::class, AttachmentEntity::class, ConfigEntity::class, KnowledgeSourceEntity::class, KnowledgeChunkEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class AgentDatabase : RoomDatabase() {
@@ -35,6 +35,12 @@ abstract class AgentDatabase : RoomDatabase() {
                 db.execSQL("CREATE TABLE IF NOT EXISTS knowledge_chunks (id TEXT NOT NULL PRIMARY KEY, sourceId TEXT NOT NULL, sourceName TEXT NOT NULL, chunkIndex INTEGER NOT NULL, text TEXT NOT NULL, createdAt INTEGER NOT NULL, FOREIGN KEY(sourceId) REFERENCES knowledge_sources(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_knowledge_chunks_sourceId ON knowledge_chunks(sourceId)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_knowledge_chunks_sourceId_chunkIndex ON knowledge_chunks(sourceId, chunkIndex)")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE model_configs ADD COLUMN profilePrompt TEXT NOT NULL DEFAULT ''")
             }
         }
     }

@@ -127,6 +127,20 @@ class ModelConfigViewModelTest {
     }
 
     @Test
+    fun profileIsPersistedWithItsModelConfiguration() = runTest {
+        val repository = FakeModelConfigRepository()
+        val viewModel = ModelConfigViewModel(repository, FakeSecretStore(), dispatcher)
+        viewModel.updateDisplayName("Claude")
+        viewModel.updateBaseUrl("https://api.anthropic.com")
+        viewModel.updateModelName("claude-3")
+        viewModel.updateProfilePrompt("你是温柔、耐心的中文顾问")
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertEquals("你是温柔、耐心的中文顾问", repository.saved.single().profilePrompt)
+    }
+
+    @Test
     fun consumingLastSavedConfigIdClearsIt() = runTest {
         val repository = FakeModelConfigRepository()
         val viewModel = ModelConfigViewModel(repository, FakeSecretStore(), dispatcher)

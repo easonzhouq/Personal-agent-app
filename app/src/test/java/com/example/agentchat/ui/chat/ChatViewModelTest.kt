@@ -168,6 +168,32 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun selectedModelProfileIsIncludedInProviderContext() = runTest(ioDispatcher) {
+        var captured: List<ChatMessage> = emptyList()
+        val provider = object : ModelProvider {
+            override fun stream(config: ModelConfig, apiKey: String, messages: List<ChatMessage>): Flow<ChatEvent> {
+                captured = messages
+                return flowOfEvents(ChatEvent.Completed())
+            }
+        }
+        val profiledConfig = config.copy(profilePrompt = "你是简洁、专业的产品顾问")
+        val viewModel = ChatViewModel(
+            provider = provider,
+            secretStore = FakeSecrets(),
+            appendMessage = { it },
+            updateAssistantMessage = { _, _, _ -> },
+            ioDispatcher = ioDispatcher,
+            initialConfig = profiledConfig,
+        )
+
+        viewModel.onIntent(ChatIntent.DraftChanged("帮我总结一下"))
+        viewModel.onIntent(ChatIntent.Send)
+        advanceUntilIdle()
+
+        assertTrue(captured.first { it.role == Role.SYSTEM }.text.contains("简洁、专业的产品顾问"))
+    }
+
+    @Test
     fun attachmentsSelectedMergesWithoutReplacingExistingAndReportsDuplicates() = runTest(ioDispatcher) {
         val existing = Attachment("old", "old.txt", "text/plain", 1, "content://old")
         val duplicate = existing.copy(id = "new")

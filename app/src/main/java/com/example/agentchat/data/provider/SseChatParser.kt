@@ -7,6 +7,11 @@ import com.example.agentchat.domain.model.Usage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.jsonArray
@@ -29,6 +34,7 @@ class SseChatParser(
                 terminal = true
                 continue
             }
+            if (payload.equals("ping", true) || payload.equals("keep-alive", true) || payload == "[KEEPALIVE]") continue
             val event = try {
                 json.parseToJsonElement(payload).jsonObject
             } catch (_: Exception) {
@@ -38,20 +44,19 @@ class SseChatParser(
             }
 
             try {
-                event["error"]?.jsonObject?.let { error ->
+                (event["error"] as? JsonObject)?.let { error ->
                     emit(ChatEvent.Failed(ProviderErrorMapper.provider(error["code"]?.jsonPrimitive?.content)))
                     terminal = true
                 }
                 if (terminal) continue
-                event["usage"]?.jsonObject?.let {
+                (event["usage"] as? JsonObject)?.let {
                     cachedUsage = Usage(
                         promptTokens = it["prompt_tokens"]?.jsonPrimitive?.intOrNull ?: 0,
                         completionTokens = it["completion_tokens"]?.jsonPrimitive?.intOrNull ?: 0,
                         totalTokens = it["total_tokens"]?.jsonPrimitive?.intOrNull ?: 0,
                     )
                 }
-                val content = event["choices"]?.jsonArray?.firstOrNull()?.jsonObject
-                    ?.get("delta")?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull
+                val content = extractContent(event)
                 if (!content.isNullOrEmpty()) emit(ChatEvent.Delta(content))
             } catch (_: Exception) {
                 emit(ChatEvent.Failed(ChatError("malformed_json", "Malformed provider event")))
@@ -59,5 +64,29 @@ class SseChatParser(
             }
         }
         if (!terminal) emit(ChatEvent.Failed(ChatError("incomplete_stream", "Provider stream ended before [DONE]")))
+    }
+
+    private fun extractContent(event: JsonObject): String? {
+        val choice = (event["choices"] as? JsonArray)?.firstOrNull() as? JsonObject
+        val delta = choice?.get("delta") as? JsonObject
+        val message = choice?.get("message") as? JsonObject
+        return listOf(
+            delta?.get("content"),
+            message?.get("content"),
+            choice?.get("text"),
+            (event["delta"] as? JsonObject)?.get("content"),
+            event["content"],
+            event["text"],
+        ).firstNotNullOfOrNull(::textValue)
+    }
+
+    private fun textValue(element: JsonElement?): String? = when (element) {
+        null, JsonNull -> null
+        is JsonPrimitive -> element.contentOrNull
+        is JsonArray -> element.mapNotNull { item ->
+            val objectItem = item as? JsonObject
+            textValue(objectItem?.get("text") ?: objectItem?.get("content") ?: item)
+        }.joinToString("").takeIf { it.isNotEmpty() }
+        else -> textValue((element as JsonObject)["text"] ?: (element as JsonObject)["content"])
     }
 }

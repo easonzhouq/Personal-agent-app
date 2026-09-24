@@ -64,4 +64,21 @@ class SseChatParserTest {
 
         assertEquals(listOf(ChatEvent.Completed()), SseChatParser().parse(source).toList())
     }
+
+    @Test
+    fun supportsCommonOpenAiCompatibleContentShapesAndHeartbeatFrames() = runTest {
+        val source = Buffer().writeUtf8(
+            "data: ping\n" +
+                "data: {\"choices\":[{\"message\":{\"content\":\"A\"}}]}\n" +
+                "data: {\"choices\":[{\"text\":\"B\"}]}\n" +
+                "data: {\"delta\":{\"content\":\"C\"}}\n" +
+                "data: {\"content\":[{\"type\":\"text\",\"text\":\"D\"}]}\n" +
+                "data: [DONE]\n",
+        )
+
+        assertEquals(
+            listOf(ChatEvent.Delta("A"), ChatEvent.Delta("B"), ChatEvent.Delta("C"), ChatEvent.Delta("D"), ChatEvent.Completed()),
+            SseChatParser().parse(source).toList(),
+        )
+    }
 }

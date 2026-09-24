@@ -285,7 +285,7 @@ class WebSearchClient(
     companion object {
         const val MAX_ATTEMPTS = 3
         val RETRY_DELAYS_MS = longArrayOf(100L, 300L)
-        const val USER_AGENT = "KapibaraAgent/1.2.0 (Android)"
+        const val USER_AGENT = "KapibaraAgent/1.2.1 (Android)"
         val DEFAULT_RSS_FEEDS = listOf("https://feeds.bbci.co.uk/news/world/asia/rss.xml")
 
         fun defaultClient(): OkHttpClient = OkHttpClient.Builder()

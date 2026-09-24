@@ -28,6 +28,7 @@ data class ModelConfigUiState(
     val enabled: Boolean = true,
     val supportsVision: Boolean = false,
     val supportsFiles: Boolean = false,
+    val profilePrompt: String = "",
     val apiKeyMasked: String = "",
     val validationErrors: List<String> = emptyList(),
     val confirmDeleteId: String? = null,
@@ -58,11 +59,12 @@ class ModelConfigViewModel(
     fun updateEnabled(value: Boolean) = _uiState.update { it.copy(enabled = value) }
     fun updateSupportsVision(value: Boolean) = _uiState.update { it.copy(supportsVision = value) }
     fun updateSupportsFiles(value: Boolean) = _uiState.update { it.copy(supportsFiles = value) }
+    fun updateProfilePrompt(value: String) = _uiState.update { it.copy(profilePrompt = value, saveError = null) }
     fun updateApiKey(value: String) { apiKeyDraft = value; _uiState.update { it.copy(apiKeyMasked = if (value.isEmpty()) "" else "••••••••", saveError = null) } }
 
     fun edit(config: ModelConfig) {
         apiKeyDraft = null
-        _uiState.value = ModelConfigUiState(configs = _uiState.value.configs, displayName = config.displayName, baseUrl = config.baseUrl, modelName = config.modelName, protocol = config.protocol, enabled = config.enabled, supportsVision = config.supportsVision, supportsFiles = config.supportsFiles, apiKeyMasked = "••••••••", editingId = config.id, lastSavedConfigId = null)
+        _uiState.value = ModelConfigUiState(configs = _uiState.value.configs, displayName = config.displayName, baseUrl = config.baseUrl, modelName = config.modelName, protocol = config.protocol, enabled = config.enabled, supportsVision = config.supportsVision, supportsFiles = config.supportsFiles, profilePrompt = config.profilePrompt, apiKeyMasked = "••••••••", editingId = config.id, lastSavedConfigId = null)
     }
 
     fun resetForm() {
@@ -87,7 +89,7 @@ class ModelConfigViewModel(
             if (state.modelName.isBlank()) add("请输入模型名称")
         }
         if (errors.isNotEmpty()) { _uiState.update { it.copy(validationErrors = errors) }; return }
-        val config = ModelConfig(state.editingId ?: UUID.randomUUID().toString(), state.displayName.trim(), state.baseUrl.trim().trimEnd('/'), state.modelName.trim(), state.protocol, state.enabled, state.supportsVision, state.supportsFiles)
+        val config = ModelConfig(state.editingId ?: UUID.randomUUID().toString(), state.displayName.trim(), state.baseUrl.trim().trimEnd('/'), state.modelName.trim(), state.protocol, state.enabled, state.supportsVision, state.supportsFiles, profilePrompt = state.profilePrompt.trim())
         val apiKeySnapshot = apiKeyDraft
         _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch(ioDispatcher) {

@@ -29,4 +29,5 @@ data class ModelConfig(
     val supportsVision: Boolean = false,
     val supportsFiles: Boolean = false,
     val isDefault: Boolean = false,
+    val profilePrompt: String = "",
 )
