@@ -7,22 +7,50 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import com.example.agentchat.R
 import com.example.agentchat.domain.model.ChatMessage
 import com.example.agentchat.domain.model.MessageStatus
 import com.example.agentchat.domain.model.Role
 
 @Composable
 fun MessageBubble(message: ChatMessage, onRetry: () -> Unit = {}) {
+    if (message.role == Role.ASSISTANT) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = androidx.compose.ui.Alignment.Top,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.app_icon),
+                contentDescription = "卡皮巴拉助手",
+                modifier = Modifier.size(36.dp).clip(CircleShape),
+            )
+            androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
+                MessageCard(message, onRetry)
+            }
+        }
+    } else {
+        MessageCard(message, onRetry)
+    }
+}
+
+@Composable
+private fun MessageCard(message: ChatMessage, onRetry: () -> Unit) {
     val context = LocalContext.current
     Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Column(Modifier.padding(12.dp)) {

@@ -12,6 +12,8 @@ import com.example.agentchat.data.export.ExportController
 import com.example.agentchat.data.provider.ProviderRegistry
 import com.example.agentchat.data.location.DeviceLocationProvider
 import com.example.agentchat.data.search.WebSearchClient
+import com.example.agentchat.data.rag.KnowledgeRepository
+import com.example.agentchat.data.calendar.CalendarRepository
 import com.example.agentchat.data.secret.KeystoreSecretStore
 import com.example.agentchat.data.secret.SecretStore
 import com.example.agentchat.data.voice.VoiceInputController
@@ -23,6 +25,7 @@ import com.example.agentchat.domain.provider.ModelProvider
 import com.example.agentchat.ui.chat.ChatViewModel
 import com.example.agentchat.ui.history.HistoryViewModel
 import com.example.agentchat.ui.modelconfig.ModelConfigViewModel
+import com.example.agentchat.ui.knowledge.KnowledgeViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.CoroutineScope
@@ -45,7 +48,7 @@ class AppContainer(
         applicationContext,
         AgentDatabase::class.java,
         DATABASE_NAME,
-    ).addMigrations(AgentDatabase.MIGRATION_1_2).build()
+    ).addMigrations(AgentDatabase.MIGRATION_1_2, AgentDatabase.MIGRATION_2_3).build()
     val secretStore: SecretStore = secretStoreOverride ?: KeystoreSecretStore(applicationContext)
     val attachmentEncoder = ContentResolverAttachmentEncoder(contentResolver)
     val providerRegistry: ProviderRegistry = providerRegistryOverride ?: ProviderRegistry(
@@ -53,9 +56,14 @@ class AppContainer(
         attachmentEncoder = attachmentEncoder,
     )
     val locationProvider = DeviceLocationProvider(applicationContext)
-    val webSearchClient = WebSearchClient(locationProvider = locationProvider::current)
+    val webSearchClient = WebSearchClient(
+        locationProvider = locationProvider::current,
+        rssFeedUrls = WebSearchClient.DEFAULT_RSS_FEEDS,
+    )
     val modelConfigRepository: ModelConfigRepository = RoomModelConfigRepository(database, secretStore)
     val localHistoryRepository = LocalHistoryRepository(database, contentResolver)
+    val knowledgeRepository = KnowledgeRepository(database)
+    val calendarRepository = CalendarRepository(applicationContext)
     val attachmentReferenceCoordinator: AttachmentReferenceCoordinator = localHistoryRepository.attachmentReferenceCoordinator()
 
     private val registryProvider = object : ModelProvider {
@@ -73,10 +81,13 @@ class AppContainer(
         providerForConfig = { config -> providerRegistry.providerFor(config) },
         webSearch = webSearchClient::search,
         ragRetriever = { query, conversationId -> localHistoryRepository.retrieveRelevantMessages(query, conversationId) },
+        knowledgeRetriever = { query -> knowledgeRepository.retrieveRelevant(query) },
+        calendarContextRetriever = calendarRepository::upcomingEvents,
         cleanupScope = applicationScope,
     )
     val historyViewModel = HistoryViewModel(localHistoryRepository) { draftUris -> clearAllLocalData(draftUris) }
     val modelConfigViewModel = ModelConfigViewModel(modelConfigRepository, secretStore)
+    val knowledgeViewModel = KnowledgeViewModel(knowledgeRepository, contentResolver)
     val voiceInputController = VoiceInputController(
         context = applicationContext,
         onTranscript = chatViewModel::onVoiceTranscript,
@@ -115,6 +126,7 @@ class AppContainer(
         }
         try {
             localHistoryRepository.clearAllLocalData(allDraftUris)
+            knowledgeRepository.deleteAllSources()
             database.withTransaction { database.configDao().deleteAll() }
         } catch (error: CancellationException) {
             throw error

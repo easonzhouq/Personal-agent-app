@@ -24,6 +24,8 @@ import com.example.agentchat.ui.chat.ChatIntent
 import com.example.agentchat.ui.chat.ChatScreen
 import com.example.agentchat.ui.history.HistoryScreen
 import com.example.agentchat.ui.modelconfig.ModelConfigDialog
+import com.example.agentchat.ui.knowledge.KnowledgeScreen
+import com.example.agentchat.data.calendar.CalendarEventDraft
 import com.example.agentchat.ui.theme.AgentChatTheme
 import kotlinx.coroutines.launch
 
@@ -43,6 +45,7 @@ internal fun AgentChatContent(container: AppContainer) {
             val chatState by container.chatViewModel.uiState.collectAsState()
             var page by remember { mutableStateOf(Page.CHAT) }
             var showModelConfig by remember { mutableStateOf(false) }
+            var pendingCalendarAction by remember { mutableStateOf<CalendarEventDraft?>(null) }
             val openModelConfig: (com.example.agentchat.domain.model.ModelConfig?) -> Unit = { config ->
                 if (config == null) container.modelConfigViewModel.resetForm()
                 else container.modelConfigViewModel.edit(config)
@@ -66,6 +69,27 @@ internal fun AgentChatContent(container: AppContainer) {
             val requestLocationPermission = androidx.activity.compose.rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission(),
             ) { granted -> locationPermissionGranted = granted }
+            val createCalendarEvent: (CalendarEventDraft) -> Unit = { draft ->
+                container.applicationScope.launch {
+                    try {
+                        container.calendarRepository.insertEvent(draft)
+                        container.chatViewModel.onCalendarActionResult(true)
+                    } catch (error: Throwable) {
+                        container.chatViewModel.onCalendarActionResult(false, error.message ?: "日程创建失败")
+                    }
+                }
+            }
+            val requestCalendarPermissions = androidx.activity.compose.rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestMultiplePermissions(),
+            ) { permissions ->
+                val draft = pendingCalendarAction
+                pendingCalendarAction = null
+                if (draft != null && permissions[Manifest.permission.WRITE_CALENDAR] == true) {
+                    createCalendarEvent(draft)
+                } else if (draft != null) {
+                    container.chatViewModel.onCalendarActionResult(false, "未获得写入日历权限")
+                }
+            }
 
             LaunchedEffect(Unit) {
                 if (!locationPermissionGranted) {
@@ -116,6 +140,9 @@ internal fun AgentChatContent(container: AppContainer) {
             val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                 ActivityResultContracts.CreateDocument("text/markdown"),
             ) { uri -> container.exportController.onCreateDocumentResult(uri) }
+            val knowledgeLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument(),
+            ) { uri -> uri?.let(container.knowledgeViewModel::importUri) }
             val startVoice: () -> Unit = {
                 voiceController.startOrRequestPermission(
                     hasPermission = (lifecycleOwner as? ComponentActivity)?.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
@@ -133,6 +160,19 @@ internal fun AgentChatContent(container: AppContainer) {
                     onModelEdit = { config -> openModelConfig(config) },
                     onAddModelClick = { openModelConfig(null) },
                     onHistoryClick = { page = Page.HISTORY },
+                    onKnowledgeClick = { page = Page.KNOWLEDGE },
+                    onCalendarConfirm = {
+                        chatState.pendingCalendarDraft?.let { draft ->
+                            pendingCalendarAction = draft
+                            val missingPermissions = listOf(
+                                Manifest.permission.READ_CALENDAR,
+                                Manifest.permission.WRITE_CALENDAR,
+                            ).filter { context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+                            if (missingPermissions.isEmpty()) createCalendarEvent(draft)
+                            else requestCalendarPermissions.launch(missingPermissions.toTypedArray())
+                        }
+                    },
+                    onCalendarCancel = { container.chatViewModel.dismissCalendarDraft() },
                     onNewConversation = { container.applicationScope.launch { container.chatViewModel.startNewConversation() } },
                     onAttachmentClick = pickAttachments,
                     voiceInputState = voiceState,
@@ -157,6 +197,11 @@ internal fun AgentChatContent(container: AppContainer) {
                     },
                     onBack = { page = Page.CHAT },
                 )
+                Page.KNOWLEDGE -> KnowledgeScreen(
+                    viewModel = container.knowledgeViewModel,
+                    onImportClick = { knowledgeLauncher.launch(arrayOf("text/plain", "text/markdown", "application/json")) },
+                    onBack = { page = Page.CHAT },
+                )
             }
             if (showModelConfig) {
                 ModelConfigDialog(
@@ -168,4 +213,4 @@ internal fun AgentChatContent(container: AppContainer) {
     }
 }
 
-private enum class Page { CHAT, HISTORY }
+private enum class Page { CHAT, HISTORY, KNOWLEDGE }

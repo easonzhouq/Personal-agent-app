@@ -9,6 +9,11 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.agentchat.domain.model.ChatMessage
 import com.example.agentchat.domain.model.Attachment
@@ -43,6 +48,23 @@ class ChatScreenTest {
     }
 
     @Test
+    fun latestMessageStaysVisibleAtBottomOfConversationArea() {
+        val messages = listOf(
+            message("u", Role.USER, "older"),
+            message("a", Role.ASSISTANT, "latest"),
+        )
+        compose.setContent {
+            Box(Modifier.height(720.dp)) {
+                ChatScreenContent(ChatUiState(messages = messages), {})
+            }
+        }
+
+        val root = compose.onNodeWithTag("chat-root").getUnclippedBoundsInRoot()
+        val latest = compose.onNodeWithText("latest").getUnclippedBoundsInRoot()
+        assertTrue(latest.bottom > root.top + (root.bottom - root.top) / 2f)
+    }
+
+    @Test
     fun failedMessageOffersRetry() {
         compose.setContent {
             ChatScreenContent(
@@ -51,6 +73,19 @@ class ChatScreenTest {
             )
         }
         compose.onNodeWithText("重试").assertIsDisplayed()
+    }
+
+    @Test
+    fun assistantBubbleShowsAvatarButUserBubbleDoesNot() {
+        compose.setContent {
+            MessageBubble(message("assistant", Role.ASSISTANT, "answer"))
+        }
+        compose.onNodeWithContentDescription("卡皮巴拉助手").assertIsDisplayed()
+
+        compose.setContent {
+            MessageBubble(message("user", Role.USER, "question"))
+        }
+        compose.onAllNodesWithContentDescription("卡皮巴拉助手").assertCountEquals(0)
     }
 
     @Test
@@ -120,6 +155,7 @@ class ChatScreenTest {
         }
 
         compose.onNodeWithTag("model-selector").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("model-selector-arrow").assertIsDisplayed()
         compose.onNodeWithText("切换模型").assertIsDisplayed()
         compose.onNodeWithText("GPT-4o").assertIsDisplayed()
         compose.onNodeWithText("图片").assertIsDisplayed()

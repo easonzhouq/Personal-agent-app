@@ -1,11 +1,14 @@
 package com.example.agentchat.ui.chat
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -44,7 +49,9 @@ import androidx.compose.runtime.collectAsState
 import com.example.agentchat.data.attachment.AttachmentValidator
 import com.example.agentchat.data.attachment.AttachmentValidationReason
 import com.example.agentchat.data.voice.VoiceInputState
+import com.example.agentchat.data.calendar.CalendarEventDraft
 import com.example.agentchat.domain.model.ModelConfig
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun ChatScreen(
@@ -55,6 +62,7 @@ fun ChatScreen(
     onModelEdit: (ModelConfig) -> Unit = {},
     onAddModelClick: () -> Unit = onModelClick,
     onHistoryClick: () -> Unit = {},
+    onKnowledgeClick: () -> Unit = {},
     onNewConversation: () -> Unit = {},
     onAttachmentClick: () -> Unit = {},
     onVoiceClick: () -> Unit = {},
@@ -63,6 +71,8 @@ fun ChatScreen(
     onVoiceCancel: () -> Unit = {},
     voiceInputState: VoiceInputState = VoiceInputState.IDLE,
     voiceError: String? = null,
+    onCalendarConfirm: () -> Unit = {},
+    onCalendarCancel: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
     ChatScreenContent(
@@ -80,7 +90,10 @@ fun ChatScreen(
         onVoiceCancel = onVoiceCancel,
         voiceInputState = voiceInputState,
         voiceError = voiceError,
+        onCalendarConfirm = onCalendarConfirm,
+        onCalendarCancel = onCalendarCancel,
         onHistoryClick = onHistoryClick,
+        onKnowledgeClick = onKnowledgeClick,
         onNewConversation = onNewConversation,
     )
 }
@@ -102,14 +115,18 @@ fun ChatScreenContent(
     onVoiceCancel: () -> Unit = {},
     voiceInputState: VoiceInputState = VoiceInputState.IDLE,
     voiceError: String? = null,
+    onCalendarConfirm: () -> Unit = {},
+    onCalendarCancel: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
+    onKnowledgeClick: () -> Unit = {},
     onNewConversation: () -> Unit = {},
 ) {
     var showModelSheet by remember { mutableStateOf(false) }
     val messageListState = rememberLazyListState()
     val attachmentReason = state.selectedModel?.let { AttachmentValidator.validate(state.attachments, it).reason }
     val attachmentError = attachmentReason?.let { it.displayMessage() }
-    LaunchedEffect(state.messages.size, state.messages.lastOrNull()?.id, state.messages.lastOrNull()?.text) {
+    val viewportEndOffset = messageListState.layoutInfo.viewportEndOffset
+    LaunchedEffect(state.messages.size, state.messages.lastOrNull()?.id, state.messages.lastOrNull()?.text, viewportEndOffset) {
         if (state.messages.isNotEmpty()) {
             messageListState.scrollToItem(state.messages.lastIndex)
         }
@@ -117,6 +134,8 @@ fun ChatScreenContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
+            .testTag("chat-root")
             .background(MaterialTheme.colorScheme.background),
     ) {
         Row(
@@ -147,10 +166,12 @@ fun ChatScreenContent(
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Spacer(Modifier.width(5.dp))
-                        Text(
-                            "⌄",
+                        ChevronDown70(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .align(Alignment.CenterVertically)
+                                .testTag("model-selector-arrow"),
                         )
                     }
                 } else {
@@ -160,6 +181,7 @@ fun ChatScreenContent(
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onNewConversation) { Text("新会话") }
                 TextButton(onClick = onHistoryClick) { Text("历史") }
+                TextButton(onClick = onKnowledgeClick) { Text("知识库") }
             }
         }
         if (state.isStreaming) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -184,10 +206,14 @@ fun ChatScreenContent(
                 LazyColumn(
                     state = messageListState,
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom),
                 ) {
                     items(state.messages, key = { it.id }) { message -> MessageBubble(message, onRetry = { onIntent(ChatIntent.RetryAssistant(message.id)) }) }
                 }
             }
+        }
+        state.pendingCalendarDraft?.let { draft ->
+            CalendarConfirmationCard(draft, onConfirm = onCalendarConfirm, onCancel = onCalendarCancel)
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp)) }
         Composer(
@@ -265,6 +291,45 @@ fun ChatScreenContent(
                         .padding(horizontal = 12.dp)
                         .testTag("add-model-menu-item"),
                 ) { Text("＋ 添加新模型") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChevronDown70(color: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val stroke = 2.dp.toPx()
+        val left = Offset(size.width * 0.25f, size.height * 0.30f)
+        val vertex = Offset(size.width * 0.50f, size.height * 0.68f)
+        val right = Offset(size.width * 0.75f, size.height * 0.30f)
+        drawLine(color, left, vertex, strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(color, vertex, right, strokeWidth = stroke, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun CalendarConfirmationCard(
+    draft: CalendarEventDraft,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val formatter = DateTimeFormatter.ofPattern("M月d日 HH:mm")
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        tonalElevation = 2.dp,
+        shape = RoundedCornerShape(18.dp),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text("确认创建日程", style = MaterialTheme.typography.titleMedium)
+            Text(draft.title, modifier = Modifier.padding(top = 4.dp))
+            Text("${draft.startAt.format(formatter)} - ${draft.endAt.format(formatter)}", style = MaterialTheme.typography.bodySmall)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onCancel) { Text("取消") }
+                TextButton(onClick = onConfirm) { Text("确认创建") }
             }
         }
     }

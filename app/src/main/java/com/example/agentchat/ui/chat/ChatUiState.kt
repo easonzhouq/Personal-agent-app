@@ -4,6 +4,7 @@ import com.example.agentchat.domain.model.Attachment
 import com.example.agentchat.domain.model.ChatMessage
 import com.example.agentchat.domain.model.ModelConfig
 import com.example.agentchat.data.attachment.AttachmentRejection
+import com.example.agentchat.data.calendar.CalendarEventDraft
 import java.util.UUID
 
 data class ChatUiState(
@@ -14,6 +15,7 @@ data class ChatUiState(
     val error: String? = null,
     val selectedModel: ModelConfig? = null,
     val selectedConfigId: String? = null,
+    val pendingCalendarDraft: CalendarEventDraft? = null,
     val conversationId: String = UUID.randomUUID().toString(),
 )
 

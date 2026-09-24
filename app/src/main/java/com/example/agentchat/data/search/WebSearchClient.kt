@@ -3,6 +3,7 @@ package com.example.agentchat.data.search
 import com.example.agentchat.data.location.DeviceCoordinates
 import java.net.URLEncoder
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
@@ -13,6 +14,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
 import java.net.SocketTimeoutException
+import java.util.concurrent.TimeUnit
 
 data class WebSearchResult(
     val context: WebSearchContext? = null,
@@ -39,15 +41,19 @@ data class WebSearchContext(
 }
 
 class WebSearchClient(
-    private val client: OkHttpClient = OkHttpClient(),
+    private val client: OkHttpClient = defaultClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val locationProvider: suspend () -> DeviceCoordinates? = { null },
+    private val duckDuckGoUrl: String = "https://api.duckduckgo.com/",
+    private val wikipediaUrl: String = "https://zh.wikipedia.org/w/api.php",
+    private val arxivUrl: String = "https://export.arxiv.org/api/query",
+    private val rssFeedUrls: List<String> = emptyList(),
 ) {
     suspend fun search(query: String): WebSearchResult = withContext(Dispatchers.IO) {
         if (!shouldSearch(query)) return@withContext WebSearchResult()
         try {
-            val context = if (isWeatherQuery(query)) searchWeather(query) ?: searchDuckDuckGo(query)
-            else searchDuckDuckGo(query)
+            val context = if (isWeatherQuery(query)) searchWeather(query) ?: searchFallbacks(query)
+            else searchFallbacks(query)
             if (context == null) WebSearchResult(failure = "联网服务没有返回可用结果，请检查网络或改用更具体的城市/关键词")
             else WebSearchResult(context = context)
         } catch (error: SearchNetworkException) {
@@ -61,8 +67,8 @@ class WebSearchClient(
         }
     }
 
-    private fun searchDuckDuckGo(query: String): WebSearchContext? {
-        val root = getJson("https://api.duckduckgo.com/?q=${encode(query)}&format=json&no_html=1&skip_disambig=1") ?: return null
+    private suspend fun searchDuckDuckGo(query: String): WebSearchContext? {
+        val root = getJson("${duckDuckGoUrl.trimEnd('/')}/?q=${encode(query)}&format=json&no_html=1&skip_disambig=1") ?: return null
         val abstractText = root["AbstractText"]?.jsonPrimitive?.contentOrNull.orEmpty()
         val abstractUrl = root["AbstractURL"]?.jsonPrimitive?.contentOrNull.orEmpty()
         val heading = root["Heading"]?.jsonPrimitive?.contentOrNull.orEmpty()
@@ -78,6 +84,81 @@ class WebSearchClient(
         }
         val sources = listOfNotNull(abstractUrl.takeIf { it.isNotBlank() }, related?.second)
         return WebSearchContext(query, summary, sources)
+    }
+
+    private suspend fun searchFallbacks(query: String): WebSearchContext? {
+        val candidates: List<suspend () -> WebSearchContext?> = when {
+            isAcademicQuery(query) -> listOf(::searchArxiv, ::searchWikipedia, ::searchDuckDuckGo).map { candidate -> { candidate(query) } }
+            isNewsQuery(query) -> listOf(::searchRss, ::searchDuckDuckGo, ::searchWikipedia).map { candidate -> { candidate(query) } }
+            else -> listOf(::searchDuckDuckGo, ::searchWikipedia, ::searchArxiv).map { candidate -> { candidate(query) } }
+        }
+        for (candidate in candidates) {
+            val result = try {
+                candidate()
+            } catch (error: SearchNetworkException) {
+                if (!error.retryable) throw error
+                null
+            } catch (_: IOException) {
+                null
+            }
+            if (result != null) return result
+        }
+        return null
+    }
+
+    private suspend fun searchWikipedia(query: String): WebSearchContext? {
+        val root = getJson("${wikipediaUrl.trimEnd('/')}?action=query&list=search&srsearch=${encode(query)}&format=json&utf8=1")
+        val results = root["query"]?.jsonObject?.get("search")?.jsonArray.orEmpty()
+        if (results.isEmpty()) return null
+        val items = results.take(3).mapNotNull { item ->
+            val objectItem = item.jsonObject
+            val title = objectItem["title"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            val snippet = objectItem["snippet"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            title.takeIf { it.isNotBlank() }?.let { "$it：${cleanMarkup(snippet)}" }
+        }
+        if (items.isEmpty()) return null
+        val sources = results.take(3).mapNotNull { item ->
+            item.jsonObject["pageid"]?.jsonPrimitive?.contentOrNull?.let { "https://zh.wikipedia.org/?curid=$it" }
+        }
+        return WebSearchContext(query, items.joinToString("\n"), sources)
+    }
+
+    private suspend fun searchArxiv(query: String): WebSearchContext? {
+        val body = getBody("${arxivUrl.trimEnd('/')}?search_query=all:${encode(query)}&start=0&max_results=3", "application/atom+xml")
+        val entries = Regex("<entry>(.*?)</entry>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            .findAll(body)
+            .take(3)
+            .mapNotNull { match ->
+                val entry = match.groupValues[1]
+                val title = firstTag(entry, "title")?.let(::cleanMarkup).orEmpty()
+                val summary = firstTag(entry, "summary")?.let(::cleanMarkup).orEmpty()
+                title.takeIf { it.isNotBlank() }?.let { "$it：$summary" }
+            }
+            .toList()
+        if (entries.isEmpty()) return null
+        return WebSearchContext(query, entries.joinToString("\n"), listOf("https://arxiv.org/"))
+    }
+
+    private suspend fun searchRss(query: String): WebSearchContext? {
+        if (rssFeedUrls.isEmpty()) return null
+        val entries = buildList {
+            rssFeedUrls.forEach { feedUrl ->
+                val body = runCatching { getBody(feedUrl, "application/rss+xml, application/atom+xml, text/xml") }.getOrNull() ?: return@forEach
+                Regex("<(item|entry)(?:\\s[^>]*)?>(.*?)</\\1>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+                    .findAll(body)
+                    .forEach { match ->
+                        val item = match.groupValues[2]
+                        val title = firstTag(item, "title")?.let(::cleanMarkup).orEmpty()
+                        val description = (firstTag(item, "description") ?: firstTag(item, "summary"))?.let(::cleanMarkup).orEmpty()
+                        if (title.isNotBlank()) add("$title：$description")
+                    }
+            }
+        }
+        val terms = query.split(Regex("\\s+"))
+            .filter { it.length > 1 && !it.equals("latest", true) && !it.equals("news", true) }
+        val selected = if (terms.isEmpty()) entries else entries.filter { it.containsAny(terms) }.ifEmpty { entries }
+        if (selected.isEmpty()) return null
+        return WebSearchContext(query, selected.take(5).joinToString("\n"), rssFeedUrls)
     }
 
     private suspend fun searchWeather(query: String): WebSearchContext? {
@@ -116,19 +197,42 @@ class WebSearchClient(
         return WebSearchContext(query, summary, listOf("https://open-meteo.com/"))
     }
 
-    private fun getJson(url: String) = runCatching {
-        client.newCall(Request.Builder().url(url).header("Accept", "application/json").build()).execute().use { response ->
-            if (!response.isSuccessful) throw SearchNetworkException("联网服务返回 HTTP ${response.code}")
-            response.body?.string()?.let { json.parseToJsonElement(it).jsonObject }
-                ?: throw SearchNetworkException("联网服务返回空数据")
+    private suspend fun getJson(url: String): kotlinx.serialization.json.JsonObject {
+        val body = getBody(url, "application/json")
+        return runCatching { json.parseToJsonElement(body).jsonObject }
+            .getOrElse { throw SearchNetworkException("联网服务响应格式异常") }
+    }
+
+    private suspend fun getBody(url: String, accept: String): String {
+        var lastFailure: Throwable? = null
+        for (attempt in 0 until MAX_ATTEMPTS) {
+            try {
+                return client.newCall(
+                    Request.Builder()
+                        .url(url)
+                        .header("Accept", accept)
+                        .header("User-Agent", USER_AGENT)
+                        .build(),
+                ).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        throw SearchNetworkException(
+                            message = "联网服务返回 HTTP ${response.code}",
+                            retryable = response.code == 408 || response.code == 429 || response.code in 500..599,
+                        )
+                    }
+                    response.body?.string()?.takeIf { it.isNotBlank() }
+                        ?: throw SearchNetworkException("联网服务返回空数据")
+                }
+            } catch (error: SearchNetworkException) {
+                lastFailure = error
+                if (!error.retryable || attempt == MAX_ATTEMPTS - 1) throw error
+            } catch (error: IOException) {
+                lastFailure = error
+                if (attempt == MAX_ATTEMPTS - 1) throw error
+            }
+            delay(RETRY_DELAYS_MS[attempt])
         }
-    }.getOrElse { error ->
-        when (error) {
-            is SearchNetworkException -> throw error
-            is SocketTimeoutException -> throw error
-            is IOException -> throw error
-            else -> throw SearchNetworkException("联网服务响应格式异常")
-        }
+        throw lastFailure ?: SearchNetworkException("联网请求失败")
     }
 
     private fun encode(value: String) = URLEncoder.encode(value, Charsets.UTF_8.name())
@@ -143,8 +247,28 @@ class WebSearchClient(
 
     private fun shouldSearch(query: String) = listOf(
         "联网", "搜索", "查一下", "查询", "最新", "实时", "今天", "现在", "天气", "新闻", "价格", "股价",
-        "weather", "latest", "search", "current", "news",
+        "weather", "latest", "search", "current", "news", "api", "http://", "https://", ".com", ".org",
+        "duckduckgo", "open-meteo", "wikipedia", "arxiv", "rss",
     ).any { query.contains(it, ignoreCase = true) }
+
+    private fun isNewsQuery(query: String) = listOf("新闻", "资讯", "latest", "news").any { query.contains(it, ignoreCase = true) }
+
+    private fun isAcademicQuery(query: String) = listOf("论文", "学术", "arxiv", "研究", "paper").any { query.contains(it, ignoreCase = true) }
+
+    private fun firstTag(value: String, tag: String): String? =
+        Regex("<$tag(?:\\s[^>]*)?>(.*?)</$tag>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            .find(value)?.groupValues?.getOrNull(1)
+
+    private fun cleanMarkup(value: String) = value
+        .replace(Regex("<[^>]+>"), "")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+    private fun String.containsAny(values: List<String>) = values.any { contains(it, ignoreCase = true) }
 
     private fun weatherCode(code: Int?) = when (code) {
         0 -> "晴"
@@ -157,6 +281,22 @@ class WebSearchClient(
         95, 96, 99 -> "雷雨"
         else -> "天气状况未知"
     }
+
+    companion object {
+        const val MAX_ATTEMPTS = 3
+        val RETRY_DELAYS_MS = longArrayOf(100L, 300L)
+        const val USER_AGENT = "KapibaraAgent/1.2.0 (Android)"
+        val DEFAULT_RSS_FEEDS = listOf("https://feeds.bbci.co.uk/news/world/asia/rss.xml")
+
+        fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
 }
 
-private class SearchNetworkException(message: String) : IllegalStateException(message)
+private class SearchNetworkException(
+    message: String,
+    val retryable: Boolean = false,
+) : IllegalStateException(message)

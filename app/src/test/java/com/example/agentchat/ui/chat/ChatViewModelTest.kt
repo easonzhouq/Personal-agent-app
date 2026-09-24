@@ -66,6 +66,108 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun searchFailureDoesNotBlockProviderResponse() = runTest(ioDispatcher) {
+        var providerCalls = 0
+        val provider = object : ModelProvider {
+            override fun stream(config: ModelConfig, apiKey: String, messages: List<ChatMessage>): Flow<ChatEvent> {
+                providerCalls++
+                return flowOfEvents(ChatEvent.Delta("answer"), ChatEvent.Completed())
+            }
+        }
+        val viewModel = ChatViewModel(
+            provider = provider,
+            secretStore = FakeSecrets(),
+            appendMessage = { it },
+            updateAssistantMessage = { _, _, _ -> },
+            ioDispatcher = ioDispatcher,
+            initialConfig = config,
+            webSearch = { com.example.agentchat.data.search.WebSearchResult(failure = "search offline") },
+        )
+
+        viewModel.onIntent(ChatIntent.DraftChanged("近期天气如何"))
+        viewModel.onIntent(ChatIntent.Send)
+        advanceUntilIdle()
+
+        assertEquals(1, providerCalls)
+        assertEquals(MessageStatus.COMPLETED, viewModel.uiState.value.messages.last().status)
+        assertEquals("answer", viewModel.uiState.value.messages.last().text)
+        assertEquals(null, viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun retrievedKnowledgeIsIncludedWithSourceInProviderContext() = runTest(ioDispatcher) {
+        var captured: List<ChatMessage> = emptyList()
+        val provider = object : ModelProvider {
+            override fun stream(config: ModelConfig, apiKey: String, messages: List<ChatMessage>): Flow<ChatEvent> {
+                captured = messages
+                return flowOfEvents(ChatEvent.Completed())
+            }
+        }
+        val viewModel = ChatViewModel(
+            provider = provider,
+            secretStore = FakeSecrets(),
+            appendMessage = { it },
+            updateAssistantMessage = { _, _, _ -> },
+            ioDispatcher = ioDispatcher,
+            initialConfig = config,
+            knowledgeRetriever = {
+                listOf(
+                    com.example.agentchat.data.rag.KnowledgeChunk(
+                        id = "chunk-1",
+                        sourceId = "source-1",
+                        sourceName = "guide.md",
+                        chunkIndex = 0,
+                        text = "Open-Meteo 用于天气查询。",
+                    ),
+                )
+            },
+        )
+
+        viewModel.onIntent(ChatIntent.DraftChanged("天气怎么查"))
+        viewModel.onIntent(ChatIntent.Send)
+        advanceUntilIdle()
+
+        val context = captured.first { it.role == Role.SYSTEM }.text
+        assertTrue(context.contains("知识库"))
+        assertTrue(context.contains("guide.md"))
+        assertTrue(context.contains("Open-Meteo"))
+    }
+
+    @Test
+    fun authorizedCalendarContextIsIncludedForScheduleQuestions() = runTest(ioDispatcher) {
+        var captured: List<ChatMessage> = emptyList()
+        val provider = object : ModelProvider {
+            override fun stream(config: ModelConfig, apiKey: String, messages: List<ChatMessage>): Flow<ChatEvent> {
+                captured = messages
+                return flowOfEvents(ChatEvent.Completed())
+            }
+        }
+        val event = com.example.agentchat.data.calendar.CalendarEventSummary(
+            title = "产品评审",
+            startAt = java.time.ZonedDateTime.parse("2026-09-25T10:00:00+08:00[Asia/Shanghai]"),
+            endAt = java.time.ZonedDateTime.parse("2026-09-25T11:00:00+08:00[Asia/Shanghai]"),
+            location = "会议室",
+        )
+        val viewModel = ChatViewModel(
+            provider = provider,
+            secretStore = FakeSecrets(),
+            appendMessage = { it },
+            updateAssistantMessage = { _, _, _ -> },
+            ioDispatcher = ioDispatcher,
+            initialConfig = config,
+            calendarContextRetriever = { listOf(event) },
+        )
+
+        viewModel.onIntent(ChatIntent.DraftChanged("我今天有什么日程"))
+        viewModel.onIntent(ChatIntent.Send)
+        advanceUntilIdle()
+
+        val context = captured.first { it.role == Role.SYSTEM }.text
+        assertTrue(context.contains("产品评审"))
+        assertTrue(context.contains("会议室"))
+    }
+
+    @Test
     fun attachmentsSelectedMergesWithoutReplacingExistingAndReportsDuplicates() = runTest(ioDispatcher) {
         val existing = Attachment("old", "old.txt", "text/plain", 1, "content://old")
         val duplicate = existing.copy(id = "new")
