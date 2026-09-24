@@ -11,6 +11,13 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
+import java.net.SocketTimeoutException
+
+data class WebSearchResult(
+    val context: WebSearchContext? = null,
+    val failure: String? = null,
+)
 
 data class WebSearchContext(
     val query: String,
@@ -36,10 +43,22 @@ class WebSearchClient(
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val locationProvider: suspend () -> DeviceCoordinates? = { null },
 ) {
-    suspend fun search(query: String): WebSearchContext? = withContext(Dispatchers.IO) {
-        if (!shouldSearch(query)) return@withContext null
-        if (isWeatherQuery(query)) searchWeather(query) ?: searchDuckDuckGo(query)
-        else searchDuckDuckGo(query)
+    suspend fun search(query: String): WebSearchResult = withContext(Dispatchers.IO) {
+        if (!shouldSearch(query)) return@withContext WebSearchResult()
+        try {
+            val context = if (isWeatherQuery(query)) searchWeather(query) ?: searchDuckDuckGo(query)
+            else searchDuckDuckGo(query)
+            if (context == null) WebSearchResult(failure = "联网服务没有返回可用结果，请检查网络或改用更具体的城市/关键词")
+            else WebSearchResult(context = context)
+        } catch (error: SearchNetworkException) {
+            WebSearchResult(failure = error.message ?: "联网请求失败")
+        } catch (_: SocketTimeoutException) {
+            WebSearchResult(failure = "联网请求超时，请检查手机网络")
+        } catch (_: IOException) {
+            WebSearchResult(failure = "网络连接失败，请检查 Wi-Fi、移动数据或 VPN")
+        } catch (_: Exception) {
+            WebSearchResult(failure = "联网数据解析失败，请稍后重试")
+        }
     }
 
     private fun searchDuckDuckGo(query: String): WebSearchContext? {
@@ -75,7 +94,7 @@ class WebSearchClient(
         if (coordinates == null && city == null) {
             return WebSearchContext(
                 query = query,
-                summary = "无法获取当前位置。请在系统设置中允许应用使用大致位置，或直接输入城市名称，例如“北京今天天气”。",
+                summary = "无法获取当前位置。请检查应用的大致位置权限和手机系统定位服务，或直接输入城市名称，例如“北京今天天气”。",
                 sources = emptyList(),
             )
         }
@@ -99,10 +118,18 @@ class WebSearchClient(
 
     private fun getJson(url: String) = runCatching {
         client.newCall(Request.Builder().url(url).header("Accept", "application/json").build()).execute().use { response ->
-            if (!response.isSuccessful) return@use null
+            if (!response.isSuccessful) throw SearchNetworkException("联网服务返回 HTTP ${response.code}")
             response.body?.string()?.let { json.parseToJsonElement(it).jsonObject }
+                ?: throw SearchNetworkException("联网服务返回空数据")
         }
-    }.getOrNull()
+    }.getOrElse { error ->
+        when (error) {
+            is SearchNetworkException -> throw error
+            is SocketTimeoutException -> throw error
+            is IOException -> throw error
+            else -> throw SearchNetworkException("联网服务响应格式异常")
+        }
+    }
 
     private fun encode(value: String) = URLEncoder.encode(value, Charsets.UTF_8.name())
 
@@ -131,3 +158,5 @@ class WebSearchClient(
         else -> "天气状况未知"
     }
 }
+
+private class SearchNetworkException(message: String) : IllegalStateException(message)
