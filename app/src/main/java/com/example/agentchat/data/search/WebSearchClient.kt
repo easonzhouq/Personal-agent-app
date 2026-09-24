@@ -72,6 +72,13 @@ class WebSearchClient(
             val longitude = geo["longitude"]?.jsonPrimitive?.contentOrNull ?: return null
             latitude to longitude
         }
+        if (coordinates == null && city == null) {
+            return WebSearchContext(
+                query = query,
+                summary = "无法获取当前位置。请在系统设置中允许应用使用大致位置，或直接输入城市名称，例如“北京今天天气”。",
+                sources = emptyList(),
+            )
+        }
         val (latitude, longitude) = coordinates ?: return null
         val location = city ?: "当前位置"
         val weatherUrl = "https://api.open-meteo.com/v1/forecast?latitude=$latitude&longitude=$longitude&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m&timezone=auto"
