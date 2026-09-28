@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -47,6 +50,37 @@ class AnthropicProviderTest {
         assertEquals("2023-06-01", request.getHeader("anthropic-version"))
         assertTrue(events.contains(ChatEvent.Delta("hello")))
         assertTrue(events.any { it is ChatEvent.Completed })
+    }
+
+    @Test
+    fun encodesImageAttachmentAsAnthropicBase64Source() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"),
+        )
+        val attachment = com.example.agentchat.domain.model.Attachment(
+            id = "image",
+            name = "photo.png",
+            mimeType = "image/png",
+            sizeBytes = 3,
+            contentUri = "content://photo",
+        )
+
+        val events = AnthropicProvider(attachmentReader = { byteArrayOf(1, 2, 3) })
+            .stream(config(), "secret-key", listOf(message("请看图").copy(attachments = listOf(attachment))))
+            .toList()
+
+        val request = server.takeRequest(5, java.util.concurrent.TimeUnit.SECONDS)
+            ?: throw AssertionError("Provider did not send a request. Events: $events")
+        val body = kotlinx.serialization.json.Json.parseToJsonElement(request.body.readUtf8()).jsonObject
+        val content = body["messages"]!!.jsonArray.single().jsonObject["content"]!!.jsonArray
+        val image = content[1].jsonObject
+        assertEquals("image", image["type"]?.jsonPrimitive?.content)
+        assertEquals("base64", image["source"]?.jsonObject?.get("type")?.jsonPrimitive?.content)
+        assertEquals("image/png", image["source"]?.jsonObject?.get("media_type")?.jsonPrimitive?.content)
+        assertEquals("AQID", image["source"]?.jsonObject?.get("data")?.jsonPrimitive?.content)
     }
 
     private fun config() = ModelConfig(

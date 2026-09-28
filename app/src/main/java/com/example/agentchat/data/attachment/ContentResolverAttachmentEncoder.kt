@@ -20,9 +20,9 @@ class ContentResolverAttachmentEncoder(
     private val maxBytes: Long = AttachmentValidator.MAX_SIZE_BYTES,
     private val streamOpener: ((Uri) -> java.io.InputStream?)? = null,
 ) : AttachmentEncoder {
-    override fun encode(attachment: Attachment): JsonElement {
+    fun readBytes(attachment: Attachment): ByteArray {
         if (attachment.sizeBytes < 0 || attachment.sizeBytes > maxBytes) throw UnsupportedAttachment("Attachment size is not supported")
-        val bytes = try {
+        return try {
             (streamOpener ?: resolver?.let { it::openInputStream } ?: throw AttachmentReadError())(Uri.parse(attachment.contentUri))?.use { input ->
                 java.io.ByteArrayOutputStream().use { output ->
                     val buffer = ByteArray(8192)
@@ -44,6 +44,10 @@ class ContentResolverAttachmentEncoder(
             if (error is CancellationException) throw error
             throw AttachmentReadError()
         }
+    }
+
+    override fun encode(attachment: Attachment): JsonElement {
+        val bytes = readBytes(attachment)
         return buildJsonObject {
             val mimeType = attachment.mimeType.lowercase(Locale.ROOT)
             val dataUri = "data:${attachment.mimeType};base64,${Base64.encodeToString(bytes, Base64.NO_WRAP)}"

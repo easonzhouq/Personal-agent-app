@@ -1,5 +1,10 @@
 package com.example.agentchat.data.provider
 
+import android.content.ContentResolver
+import com.example.agentchat.data.attachment.AttachmentReadError
+import com.example.agentchat.data.attachment.ContentResolverAttachmentEncoder
+import com.example.agentchat.data.attachment.UnsupportedAttachment
+import com.example.agentchat.domain.model.Attachment
 import com.example.agentchat.domain.model.ChatError
 import com.example.agentchat.domain.model.ChatEvent
 import com.example.agentchat.domain.model.ChatMessage
@@ -16,7 +21,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
@@ -32,6 +39,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.net.SocketTimeoutException
+import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -40,14 +48,16 @@ class AnthropicProvider(
     private val client: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val callFactory: Factory = client,
+    contentResolver: ContentResolver? = null,
+    attachmentReader: ((Attachment) -> ByteArray)? = null,
 ) : ModelProvider {
+    private val effectiveAttachmentReader = attachmentReader ?: contentResolver?.let { resolver ->
+        ContentResolverAttachmentEncoder(resolver)::readBytes
+    }
+
     override fun stream(config: ModelConfig, apiKey: String, messages: List<ChatMessage>): Flow<ChatEvent> = flow {
         emit(ChatEvent.Started)
         try {
-            if (messages.any { it.attachments.isNotEmpty() }) {
-                emit(ChatEvent.Failed(ChatError("unsupported_attachment", "Anthropic 图片或文件消息暂未支持")))
-                return@flow
-            }
             if (!isAllowedBaseUrl(config.baseUrl)) {
                 emit(ChatEvent.Failed(ChatError("invalid_url", "Provider URL 必须使用 HTTPS；请填写 Anthropic API 地址")))
                 return@flow
@@ -62,7 +72,7 @@ class AnthropicProvider(
                         .forEach { message ->
                             add(buildJsonObject {
                                 put("role", message.role.name.lowercase())
-                                put("content", message.text)
+                                put("content", encodeContent(message))
                             })
                         }
                 }
@@ -96,6 +106,12 @@ class AnthropicProvider(
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (_: AttachmentReadError) {
+            currentCoroutineContext().ensureActive()
+            emit(ChatEvent.Failed(ChatError("attachment_read_error", "Unable to read attachment")))
+        } catch (_: UnsupportedAttachment) {
+            currentCoroutineContext().ensureActive()
+            emit(ChatEvent.Failed(ChatError("unsupported_attachment", "Anthropic 目前只支持 PNG、JPEG、GIF 或 WebP 图片")))
         } catch (_: SocketTimeoutException) {
             currentCoroutineContext().ensureActive()
             emit(ChatEvent.Failed(ChatError("timeout", "Provider connection timed out", retryable = true)))
@@ -120,6 +136,32 @@ class AnthropicProvider(
             override fun onFailure(call: Call, error: IOException) = continuation.resumeWithException(error)
             override fun onResponse(call: Call, response: okhttp3.Response) = continuation.resume(CancellableResponse(call, response))
         })
+    }
+
+    private fun encodeContent(message: ChatMessage): JsonElement {
+        if (message.attachments.isEmpty()) return JsonPrimitive(message.text)
+        val reader = effectiveAttachmentReader ?: throw AttachmentReadError()
+        return kotlinx.serialization.json.buildJsonArray {
+            add(buildJsonObject {
+                put("type", "text")
+                put("text", message.text)
+            })
+            message.attachments.forEach { attachment ->
+                val mimeType = attachment.mimeType.lowercase(Locale.ROOT)
+                if (mimeType !in SUPPORTED_IMAGE_MIME_TYPES) {
+                    throw UnsupportedAttachment("Anthropic image media type is not supported")
+                }
+                val data = java.util.Base64.getEncoder().encodeToString(reader(attachment))
+                add(buildJsonObject {
+                    put("type", "image")
+                    put("source", buildJsonObject {
+                        put("type", "base64")
+                        put("media_type", mimeType)
+                        put("data", data)
+                    })
+                })
+            }
+        }
     }
 
     private fun parseEvents(source: okio.BufferedSource): Flow<ChatEvent> = flow {
@@ -172,6 +214,7 @@ class AnthropicProvider(
     companion object {
         private const val ANTHROPIC_VERSION = "2023-06-01"
         private const val MAX_TOKENS = 4096
+        private val SUPPORTED_IMAGE_MIME_TYPES = setOf("image/jpeg", "image/png", "image/gif", "image/webp")
 
         fun isAllowedBaseUrl(value: String): Boolean = runCatching {
             val uri = java.net.URI(value)
