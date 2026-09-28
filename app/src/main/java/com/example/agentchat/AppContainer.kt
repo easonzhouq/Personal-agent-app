@@ -22,6 +22,7 @@ import com.example.agentchat.domain.model.ChatEvent
 import com.example.agentchat.domain.model.ChatMessage
 import com.example.agentchat.domain.model.ModelConfig
 import com.example.agentchat.domain.provider.ModelProvider
+import com.example.agentchat.domain.agent.AgentRuntime
 import com.example.agentchat.ui.chat.ChatViewModel
 import com.example.agentchat.ui.history.HistoryViewModel
 import com.example.agentchat.ui.modelconfig.ModelConfigViewModel
@@ -65,6 +66,12 @@ class AppContainer(
     val knowledgeRepository = KnowledgeRepository(database)
     val calendarRepository = CalendarRepository(applicationContext)
     val attachmentReferenceCoordinator: AttachmentReferenceCoordinator = localHistoryRepository.attachmentReferenceCoordinator()
+    val agentRuntime = AgentRuntime(
+        webSearch = webSearchClient::search,
+        knowledgeRetriever = knowledgeRepository::retrieveRelevant,
+        historyRetriever = { query, conversationId -> localHistoryRepository.retrieveRelevantMessages(query, conversationId) },
+        calendarRetriever = calendarRepository::upcomingEvents,
+    )
 
     private val registryProvider = object : ModelProvider {
         override fun stream(config: ModelConfig, apiKey: String, messages: List<ChatMessage>): Flow<ChatEvent> =
@@ -83,6 +90,7 @@ class AppContainer(
         ragRetriever = { query, conversationId -> localHistoryRepository.retrieveRelevantMessages(query, conversationId) },
         knowledgeRetriever = { query -> knowledgeRepository.retrieveRelevant(query) },
         calendarContextRetriever = calendarRepository::upcomingEvents,
+        agentRuntime = agentRuntime,
         cleanupScope = applicationScope,
     )
     val historyViewModel = HistoryViewModel(localHistoryRepository) { draftUris -> clearAllLocalData(draftUris) }

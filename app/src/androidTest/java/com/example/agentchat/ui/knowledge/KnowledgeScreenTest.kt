@@ -52,4 +52,29 @@ class KnowledgeScreenTest {
         compose.onNodeWithContentDescription("删除知识文档 guide.md").performClick()
         assertTrue(deleted == "source-1")
     }
+
+    @Test
+    fun sourceRowKeepsDeleteActionVisibleWithLongName() {
+        compose.setContent {
+            KnowledgeScreenContent(
+                state = KnowledgeUiState(
+                    sources = listOf(
+                        KnowledgeSource(
+                            "source-1",
+                            "这是一个很长很长的知识文档文件名，用于检查布局不会挤压按钮",
+                            "content://guide",
+                            3,
+                            1L,
+                        ),
+                    ),
+                ),
+                onImportClick = {},
+                onDelete = {},
+                onBack = {},
+            )
+        }
+
+        compose.onNodeWithContentDescription("删除知识文档 这是一个很长很长的知识文档文件名，用于检查布局不会挤压按钮")
+            .assertIsDisplayed()
+    }
 }

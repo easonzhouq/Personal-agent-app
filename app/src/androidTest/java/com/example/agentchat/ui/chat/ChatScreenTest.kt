@@ -6,8 +6,11 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.foundation.layout.Box
@@ -36,6 +39,26 @@ class ChatScreenTest {
         compose.setContent { ChatScreenContent(ChatUiState(), {}) }
         compose.onAllNodesWithContentDescription("发送消息").assertCountEquals(0)
         compose.onNodeWithTag("chat-input").assertIsDisplayed()
+    }
+
+    @Test
+    fun imeSendDismissesKeyboardFocus() {
+        var sent = false
+        compose.setContent {
+            Composer(
+                draft = "",
+                isStreaming = false,
+                onDraftChanged = {},
+                onSend = { sent = true },
+            )
+        }
+
+        val input = compose.onNodeWithTag("chat-input")
+        input.performTextInput("hello")
+        input.performImeAction()
+
+        assertTrue(sent)
+        input.assertIsNotFocused()
     }
 
     @Test

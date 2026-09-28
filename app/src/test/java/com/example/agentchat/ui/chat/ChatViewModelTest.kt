@@ -11,6 +11,7 @@ import com.example.agentchat.domain.model.MessageStatus
 import com.example.agentchat.domain.model.ModelConfig
 import com.example.agentchat.domain.model.ProviderProtocol
 import com.example.agentchat.domain.model.Role
+import com.example.agentchat.domain.agent.AgentRuntime
 import com.example.agentchat.domain.provider.ModelProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
@@ -784,6 +785,42 @@ class ChatViewModelTest {
         advanceUntilIdle()
         assertFalse(viewModel.uiState.value.isStreaming)
         assertEquals(MessageStatus.COMPLETED, viewModel.uiState.value.messages.last().status)
+    }
+
+    @Test
+    fun agentRuntimeContextIsPassedToProviderAsSystemMessage() = runTest(ioDispatcher) {
+        var captured: List<ChatMessage> = emptyList()
+        val provider = object : ModelProvider {
+            override fun stream(config: ModelConfig, apiKey: String, messages: List<ChatMessage>): Flow<ChatEvent> {
+                captured = messages
+                return flowOfEvents(ChatEvent.Completed())
+            }
+        }
+        val runtime = AgentRuntime(
+            webSearch = { com.example.agentchat.data.search.WebSearchResult(
+                context = com.example.agentchat.data.search.WebSearchContext("联网搜索", "runtime result", emptyList()),
+            ) },
+            knowledgeRetriever = { emptyList() },
+            historyRetriever = { _, _ -> emptyList() },
+            calendarRetriever = { emptyList() },
+        )
+        val viewModel = ChatViewModel(
+            provider = provider,
+            secretStore = FakeSecrets(),
+            appendMessage = { it },
+            updateAssistantMessage = { _, _, _ -> },
+            ioDispatcher = ioDispatcher,
+            initialConfig = config,
+            agentRuntime = runtime,
+        )
+
+        viewModel.onIntent(ChatIntent.DraftChanged("联网搜索"))
+        viewModel.onIntent(ChatIntent.Send)
+        advanceUntilIdle()
+
+        val context = captured.first { it.role == Role.SYSTEM }.text
+        assertTrue(context.contains("runtime result"))
+        assertTrue(context.contains("Agent Runtime"))
     }
 }
 

@@ -23,6 +23,8 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.sp
@@ -50,6 +52,13 @@ fun Composer(
     voiceInputState: VoiceInputState = VoiceInputState.IDLE,
     voiceError: String? = null,
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val submit = {
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
+        onSend()
+    }
     androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
         if (attachments.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -107,7 +116,7 @@ fun Composer(
                         .testTag("chat-input")
                         .onPreviewKeyEvent { event ->
                             if (event.key == Key.Enter && event.type == KeyEventType.KeyUp) {
-                                onSend()
+                                submit()
                                 true
                             } else {
                                 false
@@ -123,10 +132,10 @@ fun Composer(
                         focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
                     ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { onSend() }),
+                    keyboardActions = KeyboardActions(onSend = { submit() }),
                 )
                 if (isStreaming) {
-                    IconButton(onClick = onSend, modifier = Modifier.semantics { contentDescription = "停止生成" }) {
+                    IconButton(onClick = submit, modifier = Modifier.semantics { contentDescription = "停止生成" }) {
                         Text("■", color = androidx.compose.material3.MaterialTheme.colorScheme.primary)
                     }
                 } else {
