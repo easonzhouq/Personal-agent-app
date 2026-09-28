@@ -12,6 +12,7 @@ import com.example.agentchat.domain.model.ModelConfig
 import com.example.agentchat.domain.model.ProviderProtocol
 import com.example.agentchat.domain.model.Role
 import com.example.agentchat.domain.agent.AgentRuntime
+import com.example.agentchat.domain.skill.Skill
 import com.example.agentchat.domain.provider.ModelProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
@@ -821,6 +822,51 @@ class ChatViewModelTest {
         val context = captured.first { it.role == Role.SYSTEM }.text
         assertTrue(context.contains("runtime result"))
         assertTrue(context.contains("Agent Runtime"))
+    }
+
+    @Test
+    fun matchedSkillIsIncludedInProviderContext() = runTest(ioDispatcher) {
+        var captured: List<ChatMessage> = emptyList()
+        val provider = object : ModelProvider {
+            override fun stream(config: ModelConfig, apiKey: String, messages: List<ChatMessage>): Flow<ChatEvent> {
+                captured = messages
+                return flowOfEvents(ChatEvent.Completed())
+            }
+        }
+        val runtime = AgentRuntime(
+            webSearch = { com.example.agentchat.data.search.WebSearchResult() },
+            knowledgeRetriever = { emptyList() },
+            historyRetriever = { _, _ -> emptyList() },
+            calendarRetriever = { emptyList() },
+        )
+        val viewModel = ChatViewModel(
+            provider = provider,
+            secretStore = FakeSecrets(),
+            appendMessage = { it },
+            updateAssistantMessage = { _, _, _ -> },
+            ioDispatcher = ioDispatcher,
+            initialConfig = config,
+            agentRuntime = runtime,
+            enabledSkillsRetriever = {
+                listOf(
+                    Skill(
+                        id = "notes",
+                        name = "笔记助手",
+                        description = "整理笔记",
+                        triggers = listOf("笔记"),
+                        instructions = "先提取标题，再整理要点。",
+                    ),
+                )
+            },
+        )
+
+        viewModel.onIntent(ChatIntent.DraftChanged("帮我整理笔记"))
+        viewModel.onIntent(ChatIntent.Send)
+        advanceUntilIdle()
+
+        val context = captured.first { it.role == Role.SYSTEM }.text
+        assertTrue(context.contains("笔记助手"))
+        assertTrue(context.contains("先提取标题"))
     }
 }
 

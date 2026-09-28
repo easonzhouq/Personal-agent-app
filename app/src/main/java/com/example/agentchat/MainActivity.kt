@@ -25,6 +25,7 @@ import com.example.agentchat.ui.chat.ChatScreen
 import com.example.agentchat.ui.history.HistoryScreen
 import com.example.agentchat.ui.modelconfig.ModelConfigDialog
 import com.example.agentchat.ui.knowledge.KnowledgeScreen
+import com.example.agentchat.ui.skill.SkillScreen
 import com.example.agentchat.data.calendar.CalendarEventDraft
 import com.example.agentchat.ui.theme.AgentChatTheme
 import kotlinx.coroutines.launch
@@ -143,6 +144,9 @@ internal fun AgentChatContent(container: AppContainer) {
             val knowledgeLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                 ActivityResultContracts.OpenDocument(),
             ) { uri -> uri?.let(container.knowledgeViewModel::importUri) }
+            val skillLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument(),
+            ) { uri -> uri?.let(container.skillViewModel::importUri) }
             val startVoice: () -> Unit = {
                 voiceController.startOrRequestPermission(
                     hasPermission = (lifecycleOwner as? ComponentActivity)?.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
@@ -161,6 +165,8 @@ internal fun AgentChatContent(container: AppContainer) {
                     onAddModelClick = { openModelConfig(null) },
                     onHistoryClick = { page = Page.HISTORY },
                     onKnowledgeClick = { page = Page.KNOWLEDGE },
+                    onSkillsClick = { page = Page.SKILLS },
+                    availableSkills = container.skillViewModel.uiState.collectAsState().value.skills,
                     onCalendarConfirm = {
                         chatState.pendingCalendarDraft?.let { draft ->
                             pendingCalendarAction = draft
@@ -202,6 +208,15 @@ internal fun AgentChatContent(container: AppContainer) {
                     onImportClick = { knowledgeLauncher.launch(arrayOf("text/plain", "text/markdown", "application/json")) },
                     onBack = { page = Page.CHAT },
                 )
+                Page.SKILLS -> SkillScreen(
+                    viewModel = container.skillViewModel,
+                    onImportClick = { skillLauncher.launch(arrayOf("text/plain", "text/markdown")) },
+                    onBack = { page = Page.CHAT },
+                    onManualSelect = { skillId ->
+                        container.chatViewModel.onIntent(ChatIntent.SkillSelected(skillId))
+                        page = Page.CHAT
+                    },
+                )
             }
             if (showModelConfig) {
                 ModelConfigDialog(
@@ -213,4 +228,4 @@ internal fun AgentChatContent(container: AppContainer) {
     }
 }
 
-private enum class Page { CHAT, HISTORY, KNOWLEDGE }
+private enum class Page { CHAT, HISTORY, KNOWLEDGE, SKILLS }

@@ -14,6 +14,8 @@ import kotlinx.serialization.json.JsonObject
 class AgentToolRegistry(tools: List<AgentTool>) {
     private val toolsByName = tools.associateBy { it.name }
 
+    val toolNames: Set<String> get() = toolsByName.keys
+
     suspend fun call(name: String, input: JsonObject): ToolResult {
         val tool = toolsByName[name]
             ?: return ToolResult.Failure(

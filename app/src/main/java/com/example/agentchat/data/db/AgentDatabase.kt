@@ -9,10 +9,12 @@ import com.example.agentchat.data.config.ConfigEntity
 import com.example.agentchat.data.rag.KnowledgeChunkEntity
 import com.example.agentchat.data.rag.KnowledgeDao
 import com.example.agentchat.data.rag.KnowledgeSourceEntity
+import com.example.agentchat.data.skill.SkillDao
+import com.example.agentchat.data.skill.SkillEntity
 
 @Database(
-    entities = [ConversationEntity::class, MessageEntity::class, AttachmentEntity::class, ConfigEntity::class, KnowledgeSourceEntity::class, KnowledgeChunkEntity::class],
-    version = 4,
+    entities = [ConversationEntity::class, MessageEntity::class, AttachmentEntity::class, ConfigEntity::class, KnowledgeSourceEntity::class, KnowledgeChunkEntity::class, SkillEntity::class],
+    version = 5,
     exportSchema = true,
 )
 abstract class AgentDatabase : RoomDatabase() {
@@ -21,6 +23,7 @@ abstract class AgentDatabase : RoomDatabase() {
     abstract fun attachmentDao(): AttachmentDao
     abstract fun configDao(): ConfigDao
     abstract fun knowledgeDao(): KnowledgeDao
+    abstract fun skillDao(): SkillDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -41,6 +44,12 @@ abstract class AgentDatabase : RoomDatabase() {
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE model_configs ADD COLUMN profilePrompt TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS skills (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, version TEXT NOT NULL, triggers TEXT NOT NULL, toolNames TEXT NOT NULL, instructions TEXT NOT NULL, enabled INTEGER NOT NULL, requiresConfirmation INTEGER NOT NULL, source TEXT NOT NULL, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL)")
             }
         }
     }

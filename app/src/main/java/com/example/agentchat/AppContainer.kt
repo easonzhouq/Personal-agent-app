@@ -14,6 +14,8 @@ import com.example.agentchat.data.location.DeviceLocationProvider
 import com.example.agentchat.data.search.WebSearchClient
 import com.example.agentchat.data.rag.KnowledgeRepository
 import com.example.agentchat.data.calendar.CalendarRepository
+import com.example.agentchat.data.skill.SkillRepository
+import com.example.agentchat.data.skill.DisabledCloudSkillClient
 import com.example.agentchat.data.secret.KeystoreSecretStore
 import com.example.agentchat.data.secret.SecretStore
 import com.example.agentchat.data.voice.VoiceInputController
@@ -27,7 +29,9 @@ import com.example.agentchat.ui.chat.ChatViewModel
 import com.example.agentchat.ui.history.HistoryViewModel
 import com.example.agentchat.ui.modelconfig.ModelConfigViewModel
 import com.example.agentchat.ui.knowledge.KnowledgeViewModel
+import com.example.agentchat.ui.skill.SkillViewModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +53,7 @@ class AppContainer(
         applicationContext,
         AgentDatabase::class.java,
         DATABASE_NAME,
-    ).addMigrations(AgentDatabase.MIGRATION_1_2, AgentDatabase.MIGRATION_2_3, AgentDatabase.MIGRATION_3_4).build()
+    ).addMigrations(AgentDatabase.MIGRATION_1_2, AgentDatabase.MIGRATION_2_3, AgentDatabase.MIGRATION_3_4, AgentDatabase.MIGRATION_4_5).build()
     val secretStore: SecretStore = secretStoreOverride ?: KeystoreSecretStore(applicationContext)
     val attachmentEncoder = ContentResolverAttachmentEncoder(contentResolver)
     val providerRegistry: ProviderRegistry = providerRegistryOverride ?: ProviderRegistry(
@@ -65,6 +69,8 @@ class AppContainer(
     val localHistoryRepository = LocalHistoryRepository(database, contentResolver)
     val knowledgeRepository = KnowledgeRepository(database)
     val calendarRepository = CalendarRepository(applicationContext)
+    val skillRepository = SkillRepository(database)
+    val cloudSkillClient = DisabledCloudSkillClient()
     val attachmentReferenceCoordinator: AttachmentReferenceCoordinator = localHistoryRepository.attachmentReferenceCoordinator()
     val agentRuntime = AgentRuntime(
         webSearch = webSearchClient::search,
@@ -91,11 +97,13 @@ class AppContainer(
         knowledgeRetriever = { query -> knowledgeRepository.retrieveRelevant(query) },
         calendarContextRetriever = calendarRepository::upcomingEvents,
         agentRuntime = agentRuntime,
+        enabledSkillsRetriever = { skillRepository.observeEnabledSkills().first() },
         cleanupScope = applicationScope,
     )
     val historyViewModel = HistoryViewModel(localHistoryRepository) { draftUris -> clearAllLocalData(draftUris) }
     val modelConfigViewModel = ModelConfigViewModel(modelConfigRepository, secretStore)
     val knowledgeViewModel = KnowledgeViewModel(knowledgeRepository, contentResolver)
+    val skillViewModel = SkillViewModel(skillRepository, contentResolver)
     val voiceInputController = VoiceInputController(
         context = applicationContext,
         onTranscript = chatViewModel::onVoiceTranscript,
@@ -135,6 +143,7 @@ class AppContainer(
         try {
             localHistoryRepository.clearAllLocalData(allDraftUris)
             knowledgeRepository.deleteAllSources()
+            skillRepository.deleteAll()
             database.withTransaction { database.configDao().deleteAll() }
         } catch (error: CancellationException) {
             throw error

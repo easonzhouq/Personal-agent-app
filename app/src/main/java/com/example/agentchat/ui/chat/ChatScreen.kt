@@ -51,6 +51,7 @@ import com.example.agentchat.data.attachment.AttachmentValidationReason
 import com.example.agentchat.data.voice.VoiceInputState
 import com.example.agentchat.data.calendar.CalendarEventDraft
 import com.example.agentchat.domain.model.ModelConfig
+import com.example.agentchat.domain.skill.Skill
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -63,6 +64,8 @@ fun ChatScreen(
     onAddModelClick: () -> Unit = onModelClick,
     onHistoryClick: () -> Unit = {},
     onKnowledgeClick: () -> Unit = {},
+    onSkillsClick: () -> Unit = {},
+    availableSkills: List<Skill> = emptyList(),
     onNewConversation: () -> Unit = {},
     onAttachmentClick: () -> Unit = {},
     onVoiceClick: () -> Unit = {},
@@ -94,6 +97,8 @@ fun ChatScreen(
         onCalendarCancel = onCalendarCancel,
         onHistoryClick = onHistoryClick,
         onKnowledgeClick = onKnowledgeClick,
+        onSkillsClick = onSkillsClick,
+        availableSkills = availableSkills,
         onNewConversation = onNewConversation,
     )
 }
@@ -119,6 +124,8 @@ fun ChatScreenContent(
     onCalendarCancel: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
     onKnowledgeClick: () -> Unit = {},
+    onSkillsClick: () -> Unit = {},
+    availableSkills: List<Skill> = emptyList(),
     onNewConversation: () -> Unit = {},
 ) {
     var showModelSheet by remember { mutableStateOf(false) }
@@ -182,6 +189,10 @@ fun ChatScreenContent(
                 TextButton(onClick = onNewConversation) { Text("新会话") }
                 TextButton(onClick = onHistoryClick) { Text("历史") }
                 TextButton(onClick = onKnowledgeClick) { Text("知识库") }
+                TextButton(onClick = onSkillsClick) {
+                    val selectedSkill = state.selectedSkillId?.let { id -> availableSkills.firstOrNull { it.id == id } }
+                    Text(selectedSkill?.let { "Skill：${it.name}" } ?: "Skills")
+                }
             }
         }
         if (state.isStreaming) LinearProgressIndicator(Modifier.fillMaxWidth())

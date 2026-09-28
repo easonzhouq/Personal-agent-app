@@ -16,6 +16,7 @@ data class ChatUiState(
     val selectedModel: ModelConfig? = null,
     val selectedConfigId: String? = null,
     val pendingCalendarDraft: CalendarEventDraft? = null,
+    val selectedSkillId: String? = null,
     val conversationId: String = UUID.randomUUID().toString(),
 )
 
@@ -27,4 +28,5 @@ sealed interface ChatIntent {
     data object Retry : ChatIntent
     data class RetryAssistant(val assistantId: String) : ChatIntent
     data class RemoveAttachment(val attachmentId: String) : ChatIntent
+    data class SkillSelected(val skillId: String?) : ChatIntent
 }

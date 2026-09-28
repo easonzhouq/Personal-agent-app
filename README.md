@@ -41,6 +41,26 @@ export GRADLE_USER_HOME="$PWD/.gradle-user-home"
 
 在“模型配置”页填写显示名称、Base URL、模型名称和协议，保存时可设为默认，也可以从列表中选择“使用此模型”。当前生产 provider 是 OpenAI-compatible SSE；API Key 由 Android Keystore 加密后仅保存在本机，不写入 Room、Logcat 或 Markdown 导出。导出内容也不会包含附件 `contentUri`。
 
+## 本地 Skill
+
+在聊天页打开“Skills”，可以导入 UTF-8 的 `SKILL.md` 或 Markdown 文件。Skill 需要包含 `id`、`name`、`description` 和指令正文，可选配置版本、触发词、工具名称和是否需要确认：
+
+```markdown
+---
+id: travel-planner
+name: 旅行规划
+description: 根据目的地和日期规划行程
+version: 1.0.0
+triggers: 旅行,行程
+tools: web_search,calendar_context
+requires_confirmation: false
+---
+
+先确认日期，再生成旅行计划。
+```
+
+启用的 Skill 会按任务触发词、名称和描述自动匹配，也可以从 Skills 页面选择“用于下一条”。Skill 只提供模型任务指引并调用已注册工具，不能执行任意代码、读取未授权数据或绕过日历等敏感操作的确认流程。Skill 内容保存于本机 Room，当前云端 Skill 客户端仅保留禁用接口，未配置云端执行。
+
 ## 权限与数据边界
 
 - `INTERNET`：调用用户配置的模型服务。
@@ -48,8 +68,9 @@ export GRADLE_USER_HOME="$PWD/.gradle-user-home"
 - 附件通过系统文档选择器访问，并只保留必要的持久化 URI 权限。
 - 当前附件支持图片、纯文本、Markdown 和 JSON；PDF 暂不提供标准 provider payload，因此不会出现在选择器中。
 - 会话、消息和附件元数据保存在本机 Room；API Key 不在 Room 中。
+- Skill 元数据和指令保存在本机 Room，不包含 API Key；声明的工具必须存在于本地工具注册表中。
 - 历史页的“清空本地数据”会二次确认并清除本机 Room 会话/消息/附件/模型配置、Keystore API Key 和持久化附件 URI 权限。
 
-第一阶段不包含联网搜索、手机自动化、新工具执行器或云端会话同步。它们属于后续 Phase 2/3 的边界，需要另行设计权限、网络和数据同步策略。
+当前版本包含本地联网搜索、天气、知识库 RAG、历史记忆、日历上下文和本地 Skill 匹配。云端 Skill 只定义了接口边界，尚未部署 Agent Gateway；手机自动化仍需单独设计权限和用户确认策略。
 
 `domain/tool/PhaseHandoffContracts.kt` 仅提供 Phase 2/3 的 typed handoff contracts；Phase 1 不调用 `ActionExecutor`，也不能构造 `ConfirmedAgentAction`。
