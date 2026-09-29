@@ -887,7 +887,7 @@ class ChatViewModelTest {
         viewModel.onIntent(ChatIntent.Send)
         advanceUntilIdle()
 
-        assertEquals(listOf("started", "finished"), lifecycle.events)
+        assertEquals(listOf("started", "finished:true"), lifecycle.events)
     }
 }
 
@@ -909,7 +909,7 @@ private class RecordingTurnLifecycle : TurnExecutionLifecycle {
 
     override fun onTurnStarted(conversationId: String) { events += "started" }
 
-    override fun onTurnFinished(conversationId: String?, completed: Boolean) { events += "finished" }
+    override fun onTurnFinished(conversationId: String?, completed: Boolean) { events += "finished:$completed" }
 }
 
 private fun flowOfEvents(vararg events: ChatEvent): Flow<ChatEvent> = flow {

@@ -3,6 +3,7 @@ package com.example.agentchat.ui.chat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -18,14 +18,19 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -41,7 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
@@ -51,7 +55,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.collectAsState
 import com.example.agentchat.data.attachment.AttachmentValidator
 import com.example.agentchat.data.attachment.AttachmentValidationReason
@@ -136,6 +140,7 @@ fun ChatScreenContent(
     onNewConversation: () -> Unit = {},
 ) {
     var showModelSheet by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
     val messageListState = rememberLazyListState()
     val attachmentReason = state.selectedModel?.let { AttachmentValidator.validate(state.attachments, it).reason }
     val attachmentError = attachmentReason?.let { it.displayMessage() }
@@ -165,7 +170,7 @@ fun ChatScreenContent(
                 if (availableModels.isNotEmpty()) {
                     Surface(
                         modifier = Modifier
-                            .widthIn(min = 132.dp, max = 176.dp)
+                            .widthIn(min = 132.dp, max = 240.dp)
                             .height(42.dp)
                             .testTag("model-selector")
                             .clickable { showModelSheet = true }
@@ -187,13 +192,17 @@ fun ChatScreenContent(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text(
-                                state.selectedModel?.displayName ?: "选择模型",
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.titleMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            Row(
+                                modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    state.selectedModel?.displayName ?: "选择模型",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                            }
                             ChevronDown70(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(16.dp).testTag("model-selector-arrow"),
@@ -204,14 +213,36 @@ fun ChatScreenContent(
                     Text("Agent Chat", style = MaterialTheme.typography.titleLarge)
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                val compactButtonModifier = Modifier.defaultMinSize(minWidth = 0.dp, minHeight = 40.dp)
-                TextButton(onClick = onNewConversation, modifier = compactButtonModifier, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("新会话") }
-                TextButton(onClick = onHistoryClick, modifier = compactButtonModifier, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("历史") }
-                TextButton(onClick = onKnowledgeClick, modifier = compactButtonModifier, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("知识库") }
-                TextButton(onClick = onSkillsClick, modifier = compactButtonModifier, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    val selectedSkill = state.selectedSkillId?.let { id -> availableSkills.firstOrNull { it.id == id } }
-                    Text(selectedSkill?.let { "Skill：${it.name}" } ?: "Skills")
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onNewConversation,
+                    modifier = Modifier.semantics { contentDescription = "新对话" },
+                ) { Text("＋", color = MaterialTheme.colorScheme.primary, fontSize = 24.sp) }
+                Box {
+                    IconButton(
+                        onClick = { showMoreMenu = true },
+                        modifier = Modifier.semantics { contentDescription = "更多功能" },
+                    ) { Text("⋯", color = MaterialTheme.colorScheme.primary, fontSize = 24.sp) }
+                    DropdownMenu(
+                        expanded = showMoreMenu,
+                        onDismissRequest = { showMoreMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("历史") },
+                            onClick = { showMoreMenu = false; onHistoryClick() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("知识库") },
+                            onClick = { showMoreMenu = false; onKnowledgeClick() },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                val selectedSkill = state.selectedSkillId?.let { id -> availableSkills.firstOrNull { it.id == id } }
+                                Text(selectedSkill?.let { "Skill：${it.name}" } ?: "Skills")
+                            },
+                            onClick = { showMoreMenu = false; onSkillsClick() },
+                        )
+                    }
                 }
             }
         }

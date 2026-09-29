@@ -63,8 +63,10 @@ class ChatViewModel(
     private val agentRuntime: AgentRuntime? = null,
     private val enabledSkillsRetriever: (suspend () -> List<Skill>)? = null,
     private val turnExecutionLifecycle: TurnExecutionLifecycle? = null,
+    private val executionScope: CoroutineScope? = null,
     private val cleanupScope: CoroutineScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO),
 ) : ViewModel() {
+    private val turnScope: CoroutineScope by lazy { executionScope ?: viewModelScope }
     private val _uiState = MutableStateFlow(
         ChatUiState(
             messages = initialMessages,
@@ -287,7 +289,7 @@ class ChatViewModel(
         val userMessageId = UUID.randomUUID().toString()
         val request = ActiveRequest(token, originalDraft, state.attachments, userMessageId = userMessageId)
         activeRequest = request
-        streamJob = viewModelScope.launch {
+        streamJob = turnScope.launch {
             val userMessage = try {
                 withContext(NonCancellable) {
                     withContext(ioDispatcher) {
@@ -564,7 +566,7 @@ class ChatViewModel(
         val token = ++generation
         val request = ActiveRequest(token, originalDraft, retryAttachments, assistantId = failed.id)
         activeRequest = request
-        streamJob = viewModelScope.launch {
+        streamJob = turnScope.launch {
             try {
                 _uiState.value = state.copy(
                     isStreaming = true,

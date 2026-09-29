@@ -101,6 +101,7 @@ class AppContainer(
         agentRuntime = agentRuntime,
         enabledSkillsRetriever = { skillRepository.observeEnabledSkills().first() },
         turnExecutionLifecycle = turnExecutionLifecycle,
+        executionScope = applicationScope,
         cleanupScope = applicationScope,
     )
     val historyViewModel = HistoryViewModel(localHistoryRepository) { draftUris -> clearAllLocalData(draftUris) }
