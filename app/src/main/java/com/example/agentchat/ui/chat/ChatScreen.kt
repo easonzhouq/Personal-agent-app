@@ -2,17 +2,22 @@ package com.example.agentchat.ui.chat
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
@@ -36,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
@@ -45,6 +51,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.collectAsState
 import com.example.agentchat.data.attachment.AttachmentValidator
 import com.example.agentchat.data.attachment.AttachmentValidationReason
@@ -156,8 +163,10 @@ fun ChatScreenContent(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (availableModels.isNotEmpty()) {
-                    Row(
+                    Surface(
                         modifier = Modifier
+                            .widthIn(min = 132.dp, max = 176.dp)
+                            .height(42.dp)
                             .testTag("model-selector")
                             .clickable { showModelSheet = true }
                             .semantics {
@@ -165,31 +174,42 @@ fun ChatScreenContent(
                                 role = Role.DropdownList
                                 stateDescription = if (showModelSheet) "已展开" else "已收起"
                             }
-                            .padding(horizontal = 4.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                            .border(
+                                BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
+                                RoundedCornerShape(14.dp),
+                            ),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+                        tonalElevation = 0.dp,
                     ) {
-                        Text(
-                            state.selectedModel?.displayName ?: "选择模型",
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Spacer(Modifier.width(5.dp))
-                        ChevronDown70(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .size(18.dp)
-                                .align(Alignment.CenterVertically)
-                                .testTag("model-selector-arrow"),
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                state.selectedModel?.displayName ?: "选择模型",
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            ChevronDown70(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp).testTag("model-selector-arrow"),
+                            )
+                        }
                     }
                 } else {
                     Text("Agent Chat", style = MaterialTheme.typography.titleLarge)
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = onNewConversation) { Text("新会话") }
-                TextButton(onClick = onHistoryClick) { Text("历史") }
-                TextButton(onClick = onKnowledgeClick) { Text("知识库") }
-                TextButton(onClick = onSkillsClick) {
+                val compactButtonModifier = Modifier.defaultMinSize(minWidth = 0.dp, minHeight = 40.dp)
+                TextButton(onClick = onNewConversation, modifier = compactButtonModifier, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("新会话") }
+                TextButton(onClick = onHistoryClick, modifier = compactButtonModifier, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("历史") }
+                TextButton(onClick = onKnowledgeClick, modifier = compactButtonModifier, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("知识库") }
+                TextButton(onClick = onSkillsClick, modifier = compactButtonModifier, contentPadding = PaddingValues(horizontal = 6.dp)) {
                     val selectedSkill = state.selectedSkillId?.let { id -> availableSkills.firstOrNull { it.id == id } }
                     Text(selectedSkill?.let { "Skill：${it.name}" } ?: "Skills")
                 }
@@ -311,9 +331,9 @@ fun ChatScreenContent(
 private fun ChevronDown70(color: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val stroke = 2.dp.toPx()
-        val left = Offset(size.width * 0.25f, size.height * 0.30f)
-        val vertex = Offset(size.width * 0.50f, size.height * 0.68f)
-        val right = Offset(size.width * 0.75f, size.height * 0.30f)
+        val left = Offset(size.width * 0.22f, size.height * 0.25f)
+        val vertex = Offset(size.width * 0.50f, size.height * 0.75f)
+        val right = Offset(size.width * 0.78f, size.height * 0.25f)
         drawLine(color, left, vertex, strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color, vertex, right, strokeWidth = stroke, cap = StrokeCap.Round)
     }
