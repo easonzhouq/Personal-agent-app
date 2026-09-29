@@ -907,9 +907,9 @@ private class FakeSecrets : SecretStore {
 private class RecordingTurnLifecycle : TurnExecutionLifecycle {
     val events = mutableListOf<String>()
 
-    override fun onTurnStarted() { events += "started" }
+    override fun onTurnStarted(conversationId: String) { events += "started" }
 
-    override fun onTurnFinished() { events += "finished" }
+    override fun onTurnFinished(conversationId: String?, completed: Boolean) { events += "finished" }
 }
 
 private fun flowOfEvents(vararg events: ChatEvent): Flow<ChatEvent> = flow {

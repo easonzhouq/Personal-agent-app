@@ -2,6 +2,8 @@ package com.example.agentchat
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import com.example.agentchat.data.attachment.rememberAttachmentPicker
 import com.example.agentchat.data.voice.VoiceInputLifecycleObserver
 import com.example.agentchat.data.voice.VoiceInputState
@@ -29,12 +32,32 @@ import com.example.agentchat.ui.skill.SkillScreen
 import com.example.agentchat.data.calendar.CalendarEventDraft
 import com.example.agentchat.ui.theme.AgentChatTheme
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val container = (application as AgentChatApplication).container
         setContent { AgentChatContent(container) }
+        openConversationFromIntent(container, intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openConversationFromIntent((application as AgentChatApplication).container, intent)
+    }
+
+    private fun openConversationFromIntent(container: AppContainer, intent: Intent?) {
+        val conversationId = intent?.getStringExtra(EXTRA_CONVERSATION_ID) ?: return
+        lifecycleScope.launch {
+            val messages = container.localHistoryRepository.observeMessages(conversationId).first()
+            container.chatViewModel.loadConversation(conversationId, messages)
+        }
+    }
+
+    companion object {
+        const val EXTRA_CONVERSATION_ID = "conversation_id"
     }
 }
 
@@ -62,6 +85,9 @@ internal fun AgentChatContent(container: AppContainer) {
                     context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED,
                 )
             }
+            val requestNotificationPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { }
             val requestAudioPermission = androidx.activity.compose.rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission(),
             ) { granted ->
@@ -69,7 +95,12 @@ internal fun AgentChatContent(container: AppContainer) {
             }
             val requestLocationPermission = androidx.activity.compose.rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission(),
-            ) { granted -> locationPermissionGranted = granted }
+            ) { granted ->
+                locationPermissionGranted = granted
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
             val createCalendarEvent: (CalendarEventDraft) -> Unit = { draft ->
                 container.applicationScope.launch {
                     try {
@@ -95,6 +126,8 @@ internal fun AgentChatContent(container: AppContainer) {
             LaunchedEffect(Unit) {
                 if (!locationPermissionGranted) {
                     requestLocationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
 

@@ -370,7 +370,8 @@ class ChatViewModel(
     private suspend fun stream(token: Long, config: ModelConfig, assistant: ChatMessage) {
         var assistantText = ""
         var terminal = false
-        runCatching { turnExecutionLifecycle?.onTurnStarted() }
+        var completed = false
+        runCatching { turnExecutionLifecycle?.onTurnStarted(assistant.conversationId) }
         try {
             val apiKey = withContext(ioDispatcher) { secretStore.getApiKey(config.id) }.orEmpty()
             val requestMessages = _uiState.value.messages.filterNot { it.id == assistant.id }
@@ -465,6 +466,7 @@ class ChatViewModel(
                     }
                     is ChatEvent.Completed -> {
                         terminal = true
+                        completed = true
                         finishAssistant(token, assistant.id, assistantText, MessageStatus.COMPLETED)
                     }
                     is ChatEvent.Failed -> {
@@ -498,7 +500,7 @@ class ChatViewModel(
                 }
             }
         } finally {
-            runCatching { turnExecutionLifecycle?.onTurnFinished() }
+            runCatching { turnExecutionLifecycle?.onTurnFinished(assistant.conversationId, completed) }
             if (isCurrent(token)) {
                 activeRequest = null
                 _uiState.value = _uiState.value.copy(isStreaming = false, selectedSkillId = null)
@@ -633,7 +635,7 @@ class ChatViewModel(
     private fun String.containsAny(vararg values: String) = values.any { contains(it) }
 
     override fun onCleared() {
-        runCatching { turnExecutionLifecycle?.onTurnFinished() }
+        runCatching { turnExecutionLifecycle?.onTurnFinished(null, completed = false) }
         generation++
         activeRequest?.cancelled = true
         val request = activeRequest
