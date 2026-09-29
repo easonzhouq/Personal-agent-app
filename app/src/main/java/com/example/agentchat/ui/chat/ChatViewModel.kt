@@ -18,6 +18,7 @@ import com.example.agentchat.domain.model.MessageStatus
 import com.example.agentchat.domain.model.ModelConfig
 import com.example.agentchat.domain.model.Role
 import com.example.agentchat.domain.agent.AgentRuntime
+import com.example.agentchat.domain.agent.TurnExecutionLifecycle
 import com.example.agentchat.domain.provider.ModelProvider
 import com.example.agentchat.domain.skill.Skill
 import com.example.agentchat.domain.skill.SkillMatcher
@@ -61,6 +62,7 @@ class ChatViewModel(
     private val calendarContextRetriever: (suspend () -> List<CalendarEventSummary>)? = null,
     private val agentRuntime: AgentRuntime? = null,
     private val enabledSkillsRetriever: (suspend () -> List<Skill>)? = null,
+    private val turnExecutionLifecycle: TurnExecutionLifecycle? = null,
     private val cleanupScope: CoroutineScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO),
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
@@ -368,6 +370,7 @@ class ChatViewModel(
     private suspend fun stream(token: Long, config: ModelConfig, assistant: ChatMessage) {
         var assistantText = ""
         var terminal = false
+        runCatching { turnExecutionLifecycle?.onTurnStarted() }
         try {
             val apiKey = withContext(ioDispatcher) { secretStore.getApiKey(config.id) }.orEmpty()
             val requestMessages = _uiState.value.messages.filterNot { it.id == assistant.id }
@@ -495,6 +498,7 @@ class ChatViewModel(
                 }
             }
         } finally {
+            runCatching { turnExecutionLifecycle?.onTurnFinished() }
             if (isCurrent(token)) {
                 activeRequest = null
                 _uiState.value = _uiState.value.copy(isStreaming = false, selectedSkillId = null)
@@ -629,6 +633,7 @@ class ChatViewModel(
     private fun String.containsAny(vararg values: String) = values.any { contains(it) }
 
     override fun onCleared() {
+        runCatching { turnExecutionLifecycle?.onTurnFinished() }
         generation++
         activeRequest?.cancelled = true
         val request = activeRequest

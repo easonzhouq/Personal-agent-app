@@ -13,6 +13,7 @@ import com.example.agentchat.domain.model.ProviderProtocol
 import com.example.agentchat.domain.model.Role
 import com.example.agentchat.domain.agent.AgentRuntime
 import com.example.agentchat.domain.skill.Skill
+import com.example.agentchat.domain.agent.TurnExecutionLifecycle
 import com.example.agentchat.domain.provider.ModelProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
@@ -868,6 +869,26 @@ class ChatViewModelTest {
         assertTrue(context.contains("笔记助手"))
         assertTrue(context.contains("先提取标题"))
     }
+
+    @Test
+    fun notifiesBackgroundLifecycleUntilTurnCompletes() = runTest(ioDispatcher) {
+        val lifecycle = RecordingTurnLifecycle()
+        val viewModel = ChatViewModel(
+            provider = FakeProvider(flowOfEvents(ChatEvent.Delta("answer"), ChatEvent.Completed())),
+            secretStore = FakeSecrets(),
+            appendMessage = { it },
+            updateAssistantMessage = { _, _, _ -> },
+            ioDispatcher = ioDispatcher,
+            initialConfig = config,
+            turnExecutionLifecycle = lifecycle,
+        )
+
+        viewModel.onIntent(ChatIntent.DraftChanged("continue in background"))
+        viewModel.onIntent(ChatIntent.Send)
+        advanceUntilIdle()
+
+        assertEquals(listOf("started", "finished"), lifecycle.events)
+    }
 }
 
 private class FakeProvider(private val events: Flow<ChatEvent>) : ModelProvider {
@@ -881,6 +902,14 @@ private class FakeSecrets : SecretStore {
     override suspend fun clearAllApiKeys() = Unit
     override suspend fun snapshotApiKeys() = com.example.agentchat.data.secret.ApiKeySnapshot(emptyMap())
     override suspend fun restoreApiKeys(snapshot: com.example.agentchat.data.secret.ApiKeySnapshot) = Unit
+}
+
+private class RecordingTurnLifecycle : TurnExecutionLifecycle {
+    val events = mutableListOf<String>()
+
+    override fun onTurnStarted() { events += "started" }
+
+    override fun onTurnFinished() { events += "finished" }
 }
 
 private fun flowOfEvents(vararg events: ChatEvent): Flow<ChatEvent> = flow {

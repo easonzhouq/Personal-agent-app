@@ -69,6 +69,7 @@ requires_confirmation: false
 - 当前附件支持图片、纯文本、Markdown 和 JSON；PDF 暂不提供标准 provider payload，因此不会出现在选择器中。
 - 会话、消息和附件元数据保存在本机 Room；API Key 不在 Room 中。
 - Skill 元数据和指令保存在本机 Room，不包含 API Key；声明的工具必须存在于本地工具注册表中。
+- 对话请求开始后会启动低重要性前台任务通知；用户切到后台或锁屏时，当前模型流会继续，直到完成、失败或用户停止。
 - 历史页的“清空本地数据”会二次确认并清除本机 Room 会话/消息/附件/模型配置、Keystore API Key 和持久化附件 URI 权限。
 
 当前版本包含本地联网搜索、天气、知识库 RAG、历史记忆、日历上下文和本地 Skill 匹配。云端 Skill 只定义了接口边界，尚未部署 Agent Gateway；手机自动化仍需单独设计权限和用户确认策略。

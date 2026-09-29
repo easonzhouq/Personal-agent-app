@@ -16,6 +16,7 @@ import com.example.agentchat.data.rag.KnowledgeRepository
 import com.example.agentchat.data.calendar.CalendarRepository
 import com.example.agentchat.data.skill.SkillRepository
 import com.example.agentchat.data.skill.DisabledCloudSkillClient
+import com.example.agentchat.data.background.ForegroundAgentTurnController
 import com.example.agentchat.data.secret.KeystoreSecretStore
 import com.example.agentchat.data.secret.SecretStore
 import com.example.agentchat.data.voice.VoiceInputController
@@ -71,6 +72,7 @@ class AppContainer(
     val calendarRepository = CalendarRepository(applicationContext)
     val skillRepository = SkillRepository(database)
     val cloudSkillClient = DisabledCloudSkillClient()
+    val turnExecutionLifecycle = ForegroundAgentTurnController(applicationContext)
     val attachmentReferenceCoordinator: AttachmentReferenceCoordinator = localHistoryRepository.attachmentReferenceCoordinator()
     val agentRuntime = AgentRuntime(
         webSearch = webSearchClient::search,
@@ -98,6 +100,7 @@ class AppContainer(
         calendarContextRetriever = calendarRepository::upcomingEvents,
         agentRuntime = agentRuntime,
         enabledSkillsRetriever = { skillRepository.observeEnabledSkills().first() },
+        turnExecutionLifecycle = turnExecutionLifecycle,
         cleanupScope = applicationScope,
     )
     val historyViewModel = HistoryViewModel(localHistoryRepository) { draftUris -> clearAllLocalData(draftUris) }
