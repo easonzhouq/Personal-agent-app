@@ -71,6 +71,7 @@ import java.time.format.DateTimeFormatter
 fun ChatScreen(
     viewModel: ChatViewModel,
     onModelClick: () -> Unit = {},
+    onSend: () -> Unit = { viewModel.onIntent(ChatIntent.Send) },
     availableModels: List<ModelConfig> = emptyList(),
     onModelSelected: (ModelConfig) -> Unit = {},
     onModelEdit: (ModelConfig) -> Unit = {},
@@ -97,6 +98,7 @@ fun ChatScreen(
     ChatScreenContent(
         state = state,
         onIntent = { viewModel.onIntent(it) },
+        onSend = { if (state.isStreaming) viewModel.onIntent(ChatIntent.Stop) else onSend() },
         onModelClick = onModelClick,
         availableModels = availableModels,
         onModelSelected = onModelSelected,
@@ -127,6 +129,7 @@ fun ChatScreen(
 fun ChatScreenContent(
     state: ChatUiState,
     onIntent: (ChatIntent) -> Unit,
+    onSend: () -> Unit = { onIntent(ChatIntent.Send) },
     onModelClick: () -> Unit = {},
     availableModels: List<ModelConfig> = emptyList(),
     onModelSelected: (ModelConfig) -> Unit = {},
@@ -300,7 +303,7 @@ fun ChatScreenContent(
             isStreaming = state.isStreaming,
             attachments = state.attachments,
             onDraftChanged = { onIntent(ChatIntent.DraftChanged(it)) },
-            onSend = { onIntent(if (state.isStreaming) ChatIntent.Stop else ChatIntent.Send) },
+            onSend = { if (state.isStreaming) onIntent(ChatIntent.Stop) else onSend() },
             onAttachmentClick = onAttachmentClick,
             onVoiceClick = onVoiceClick,
             onVoicePressStart = onVoicePressStart,

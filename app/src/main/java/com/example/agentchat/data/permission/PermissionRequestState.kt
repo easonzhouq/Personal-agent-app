@@ -3,6 +3,7 @@ package com.example.agentchat.data.permission
 sealed interface PendingPermissionAction {
     data object SendMessage : PendingPermissionAction
     data object StartVoice : PendingPermissionAction
+    data object CreateCalendarEvent : PendingPermissionAction
 }
 
 /** Holds one UI action while Android's permission dialog is visible. */

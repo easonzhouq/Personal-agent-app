@@ -43,6 +43,23 @@ class ChatScreenTest {
     }
 
     @Test
+    fun chatRoutesKeyboardSendThroughPermissionAwareCallback() {
+        var sent = false
+        compose.setContent {
+            ChatScreenContent(
+                state = ChatUiState(),
+                onIntent = {},
+                onSend = { sent = true },
+            )
+        }
+
+        compose.onNodeWithTag("chat-input").performTextInput("天气怎么样")
+        compose.onNodeWithTag("chat-input").performImeAction()
+
+        assertTrue(sent)
+    }
+
+    @Test
     fun imeSendDismissesKeyboardFocus() {
         var sent = false
         compose.setContent {
