@@ -18,8 +18,8 @@ android {
         applicationId = "com.example.agentchat"
         minSdk = 26
         targetSdk = 37
-        versionCode = 12
-        versionName = "1.3.8"
+        versionCode = 13
+        versionName = "1.5.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
