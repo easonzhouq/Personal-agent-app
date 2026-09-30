@@ -46,7 +46,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -216,7 +219,7 @@ fun ChatScreenContent(
                 IconButton(
                     onClick = onNewConversation,
                     modifier = Modifier.semantics { contentDescription = "新对话" },
-                ) { Text("＋", color = MaterialTheme.colorScheme.primary, fontSize = 24.sp) }
+                ) { NewConversationIcon(MaterialTheme.colorScheme.primary, Modifier.size(21.dp)) }
                 Box {
                     IconButton(
                         onClick = { showMoreMenu = true },
@@ -353,6 +356,35 @@ fun ChatScreenContent(
                 ) { Text("＋ 添加新模型") }
             }
         }
+    }
+}
+
+@Composable
+private fun NewConversationIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val stroke = 1.8.dp.toPx()
+        val inset = stroke * 1.2f
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(inset, inset),
+            size = androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height - inset * 2),
+            cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
+            style = Stroke(width = stroke),
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.38f, size.height * 0.67f),
+            end = Offset(size.width * 0.72f, size.height * 0.33f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.36f, size.height * 0.70f),
+            end = Offset(size.width * 0.46f, size.height * 0.68f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
     }
 }
 
