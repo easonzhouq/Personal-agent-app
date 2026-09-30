@@ -3,6 +3,7 @@ package com.example.agentchat
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -78,6 +79,9 @@ internal fun AgentChatContent(container: AppContainer) {
             var showModelConfig by remember { mutableStateOf(false) }
             var pendingCalendarAction by remember { mutableStateOf<CalendarEventDraft?>(null) }
             var calendarReadPending by remember { mutableStateOf(false) }
+            var locationPermissionRequested by remember { mutableStateOf(false) }
+            var audioPermissionRequested by remember { mutableStateOf(false) }
+            var calendarPermissionRequested by remember { mutableStateOf(false) }
             var notificationPermissionAsked by remember { mutableStateOf(false) }
             val permissionRequestState = remember { PermissionRequestState() }
             val openModelConfig: (com.example.agentchat.domain.model.ModelConfig?) -> Unit = { config ->
@@ -90,6 +94,14 @@ internal fun AgentChatContent(container: AppContainer) {
             val voiceError by voiceController.errorMessage.collectAsState()
             val context = LocalContext.current
             val lifecycleOwner = context as? LifecycleOwner
+            fun openAppSettings() {
+                context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                })
+            }
+            fun shouldOpenAppSettings(permission: String, requested: Boolean): Boolean =
+                requested && (context as? android.app.Activity)?.shouldShowRequestPermissionRationale(permission) == false
+
             var locationPermissionGranted by remember {
                 mutableStateOf(
                     LocationPermission.isGranted { permission -> context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED },
@@ -222,8 +234,13 @@ internal fun AgentChatContent(container: AppContainer) {
                 voiceController.startOrRequestPermission(
                     hasPermission = (lifecycleOwner as? ComponentActivity)?.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
                     requestPermission = {
-                        permissionRequestState.begin(PendingPermissionAction.StartVoice)
-                        requestAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
+                        if (shouldOpenAppSettings(Manifest.permission.RECORD_AUDIO, audioPermissionRequested)) {
+                            openAppSettings()
+                        } else {
+                            audioPermissionRequested = true
+                            permissionRequestState.begin(PendingPermissionAction.StartVoice)
+                            requestAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
+                        }
                     },
                 )
             }
@@ -231,16 +248,33 @@ internal fun AgentChatContent(container: AppContainer) {
                 val query = chatState.draft.trim()
                 when {
                     PermissionRequirement.needsCurrentLocation(query) && !locationPermissionGranted -> {
-                        permissionRequestState.begin(PendingPermissionAction.SendMessage)
-                        requestLocationPermission.launch(LocationPermission.permissions)
+                        if (shouldOpenAppSettings(Manifest.permission.ACCESS_COARSE_LOCATION, locationPermissionRequested)) {
+                            openAppSettings()
+                        } else {
+                            locationPermissionRequested = true
+                            permissionRequestState.begin(PendingPermissionAction.SendMessage)
+                            requestLocationPermission.launch(LocationPermission.permissions)
+                        }
                     }
                     PermissionRequirement.needsCurrentLocation(query) && !locationServiceEnabled -> {
                         context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                     }
                     PermissionRequirement.needsCalendarRead(query) && !container.calendarRepository.hasReadPermission() -> {
-                        permissionRequestState.begin(PendingPermissionAction.SendMessage)
-                        calendarReadPending = true
-                        requestCalendarPermissions.launch(arrayOf(Manifest.permission.READ_CALENDAR))
+                        if (shouldOpenAppSettings(Manifest.permission.READ_CALENDAR, calendarPermissionRequested)) {
+                            openAppSettings()
+                        } else {
+                            calendarPermissionRequested = true
+                            permissionRequestState.begin(PendingPermissionAction.SendMessage)
+                            calendarReadPending = true
+                            requestCalendarPermissions.launch(arrayOf(Manifest.permission.READ_CALENDAR))
+                        }
+                    }
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+                        notificationPermissionAsked &&
+                        shouldOpenAppSettings(Manifest.permission.POST_NOTIFICATIONS, requested = true) -> {
+                        openAppSettings()
+                        container.chatViewModel.onIntent(ChatIntent.Send)
                     }
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                         context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
@@ -271,7 +305,14 @@ internal fun AgentChatContent(container: AppContainer) {
                     locationPermissionGranted = locationPermissionGranted,
                     locationServiceEnabled = locationServiceEnabled,
                     onLocationSettingsClick = {
-                        if (!locationPermissionGranted) requestLocationPermission.launch(LocationPermission.permissions)
+                        if (!locationPermissionGranted) {
+                            if (shouldOpenAppSettings(Manifest.permission.ACCESS_COARSE_LOCATION, locationPermissionRequested)) {
+                                openAppSettings()
+                            } else {
+                                locationPermissionRequested = true
+                                requestLocationPermission.launch(LocationPermission.permissions)
+                            }
+                        }
                         else context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                     },
                     onCalendarConfirm = {
@@ -283,8 +324,13 @@ internal fun AgentChatContent(container: AppContainer) {
                             ).filter { context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
                             if (missingPermissions.isEmpty()) createCalendarEvent(draft)
                             else {
-                                permissionRequestState.begin(PendingPermissionAction.CreateCalendarEvent)
-                                requestCalendarPermissions.launch(missingPermissions.toTypedArray())
+                                if (shouldOpenAppSettings(missingPermissions.first(), calendarPermissionRequested)) {
+                                    openAppSettings()
+                                } else {
+                                    calendarPermissionRequested = true
+                                    permissionRequestState.begin(PendingPermissionAction.CreateCalendarEvent)
+                                    requestCalendarPermissions.launch(missingPermissions.toTypedArray())
+                                }
                             }
                         }
                     },
