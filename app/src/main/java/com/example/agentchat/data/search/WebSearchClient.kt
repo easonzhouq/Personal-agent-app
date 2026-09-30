@@ -1,6 +1,7 @@
 package com.example.agentchat.data.search
 
 import com.example.agentchat.data.location.DeviceCoordinates
+import com.example.agentchat.data.permission.PermissionRequirement
 import java.net.URLEncoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -52,8 +53,11 @@ class WebSearchClient(
     suspend fun search(query: String): WebSearchResult = withContext(Dispatchers.IO) {
         if (!shouldSearch(query)) return@withContext WebSearchResult()
         try {
-            val context = if (isWeatherQuery(query)) searchWeather(query) ?: searchFallbacks(query)
-            else searchFallbacks(query)
+            val context = when {
+                PermissionRequirement.needsCurrentLocation(query) && !isWeatherQuery(query) -> searchLocation(query)
+                isWeatherQuery(query) -> searchWeather(query) ?: searchFallbacks(query)
+                else -> searchFallbacks(query)
+            }
             if (context == null) WebSearchResult(failure = "联网服务没有返回可用结果，请检查网络或改用更具体的城市/关键词")
             else WebSearchResult(context = context)
         } catch (error: SearchNetworkException) {
@@ -197,6 +201,22 @@ class WebSearchClient(
         return WebSearchContext(query, summary, listOf("https://open-meteo.com/"))
     }
 
+    private suspend fun searchLocation(query: String): WebSearchContext {
+        val coordinates = locationProvider()
+        if (coordinates == null) {
+            return WebSearchContext(
+                query = query,
+                summary = "无法获取当前位置。请检查应用的定位权限和手机系统定位服务。",
+                sources = emptyList(),
+            )
+        }
+        return WebSearchContext(
+            query = query,
+            summary = "当前位置坐标：纬度 ${coordinates.latitude}，经度 ${coordinates.longitude}。",
+            sources = listOf("Android LocationManager"),
+        )
+    }
+
     private suspend fun getJson(url: String): kotlinx.serialization.json.JsonObject {
         val body = getBody(url, "application/json")
         return runCatching { json.parseToJsonElement(body).jsonObject }
@@ -249,7 +269,7 @@ class WebSearchClient(
         "联网", "搜索", "查一下", "查询", "最新", "实时", "今天", "现在", "天气", "新闻", "价格", "股价",
         "weather", "latest", "search", "current", "news", "api", "http://", "https://", ".com", ".org",
         "duckduckgo", "open-meteo", "wikipedia", "arxiv", "rss",
-    ).any { query.contains(it, ignoreCase = true) }
+    ).any { query.contains(it, ignoreCase = true) } || PermissionRequirement.needsCurrentLocation(query)
 
     private fun isNewsQuery(query: String) = listOf("新闻", "资讯", "latest", "news").any { query.contains(it, ignoreCase = true) }
 

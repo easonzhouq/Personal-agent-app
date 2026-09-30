@@ -1,6 +1,7 @@
 package com.example.agentchat.data.search
 
 import java.util.concurrent.TimeUnit
+import com.example.agentchat.data.location.DeviceCoordinates
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -116,6 +117,19 @@ class WebSearchClientTest {
 
         assertTrue(result.context?.summary.orEmpty().contains("Open-Meteo API"))
         assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun directLocationRequestReturnsDeviceCoordinates() = runTest {
+        val result = WebSearchClient(
+            client = testClient(),
+            locationProvider = { DeviceCoordinates(22.5431, 114.0579) },
+        ).search("获取我的定位")
+
+        assertTrue(result.context?.summary.orEmpty().contains("22.5431"))
+        assertTrue(result.context?.summary.orEmpty().contains("114.0579"))
+        assertNull(result.failure)
+        assertEquals(0, server.requestCount)
     }
 
     private fun testClient() = OkHttpClient.Builder()

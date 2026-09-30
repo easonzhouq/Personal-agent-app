@@ -48,4 +48,19 @@ class AgentRuntimeTest {
         assertTrue(context.prompt.contains("会议"))
         assertEquals(listOf("web_search", "knowledge_search", "history_search", "calendar_context"), context.toolNames)
     }
+
+    @Test
+    fun directLocationRequestUsesWebLocationTool() = runTest {
+        val runtime = AgentRuntime(
+            webSearch = { WebSearchResult(WebSearchContext("获取我的定位", "坐标", emptyList())) },
+            knowledgeRetriever = { emptyList() },
+            historyRetriever = { _, _ -> emptyList() },
+            calendarRetriever = { emptyList() },
+        )
+
+        val context = runtime.enrich("获取我的定位", "conversation")
+
+        assertTrue(context.toolNames.contains("web_search"))
+        assertTrue(context.prompt.contains("坐标"))
+    }
 }

@@ -16,6 +16,11 @@ class PermissionRequirementTest {
     }
 
     @Test
+    fun directLocationRequestNeedsDeviceLocation() {
+        assertTrue(PermissionRequirement.needsCurrentLocation("获取我的定位"))
+    }
+
+    @Test
     fun calendarQuestionNeedsReadPermission() {
         assertTrue(PermissionRequirement.needsCalendarRead("我今天有什么会议"))
     }

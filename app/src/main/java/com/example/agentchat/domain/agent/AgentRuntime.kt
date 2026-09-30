@@ -4,6 +4,7 @@ import com.example.agentchat.data.calendar.CalendarEventSummary
 import com.example.agentchat.data.calendar.CalendarRepository
 import com.example.agentchat.data.rag.KnowledgeChunk
 import com.example.agentchat.data.search.WebSearchResult
+import com.example.agentchat.data.permission.PermissionRequirement
 import com.example.agentchat.domain.model.ChatMessage
 import com.example.agentchat.domain.skill.SkillExecutionContext
 import com.example.agentchat.domain.tool.AgentTool
@@ -136,7 +137,7 @@ class AgentRuntime(
         return CalendarRepository.formatContext(events)
     }
 
-    private fun requiresWebSearch(query: String) = listOf(
+    private fun requiresWebSearch(query: String) = PermissionRequirement.needsCurrentLocation(query) || listOf(
         "联网", "搜索", "查一下", "查询", "最新", "实时", "今天", "现在", "天气", "新闻", "价格", "股价",
         "weather", "latest", "search", "current", "news", "api", "http://", "https://", ".com", ".org",
         "duckduckgo", "open-meteo", "wikipedia", "arxiv", "rss",
