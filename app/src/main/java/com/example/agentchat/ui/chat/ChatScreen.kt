@@ -29,7 +29,6 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -246,7 +245,6 @@ fun ChatScreenContent(
                 }
             }
         }
-        if (state.isStreaming) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (state.messages.isEmpty()) {
             Surface(
                 modifier = Modifier.weight(1f).fillMaxWidth(),

@@ -15,7 +15,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.foundation.Image
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -41,11 +50,47 @@ fun MessageBubble(message: ChatMessage, onRetry: () -> Unit = {}) {
                 modifier = Modifier.size(36.dp).clip(CircleShape),
             )
             androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
-                MessageCard(message, onRetry)
+                if (message.status == MessageStatus.STREAMING && message.text.isBlank()) {
+                    ThinkingCard()
+                } else {
+                    MessageCard(message, onRetry)
+                }
             }
         }
     } else {
         MessageCard(message, onRetry)
+    }
+}
+
+@Composable
+private fun ThinkingCard() {
+    val transition = rememberInfiniteTransition(label = "thinking-shimmer")
+    val progress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2_200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "thinking-shimmer-progress",
+    )
+    val startX = -180f + progress * 360f
+    val brush = Brush.linearGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.secondary,
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+        ),
+        start = Offset(startX, 0f),
+        end = Offset(startX + 180f, 0f),
+    )
+    Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(
+            text = "小卡皮正在思考……",
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            style = MaterialTheme.typography.bodyLarge.copy(brush = brush),
+        )
     }
 }
 

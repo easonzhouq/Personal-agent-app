@@ -3,6 +3,7 @@ package com.example.agentchat.ui.chat
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.assertIsDisplayed
@@ -68,6 +69,25 @@ class ChatScreenTest {
         compose.onNodeWithContentDescription("停止生成").assertIsDisplayed()
         compose.onNodeWithText("first").assertIsDisplayed()
         compose.onNodeWithText("answer").assertIsDisplayed()
+    }
+
+    @Test
+    fun emptyStreamingAssistantShowsThinkingCard() {
+        compose.setContent {
+            MessageBubble(message("assistant", Role.ASSISTANT, "", MessageStatus.STREAMING))
+        }
+
+        compose.onNodeWithText("小卡皮正在思考……").assertIsDisplayed()
+    }
+
+    @Test
+    fun streamingAssistantWithTextShowsFormalReply() {
+        compose.setContent {
+            MessageBubble(message("assistant", Role.ASSISTANT, "正式回复", MessageStatus.STREAMING))
+        }
+
+        compose.onNodeWithText("正式回复").assertIsDisplayed()
+        compose.onAllNodesWithText("小卡皮正在思考……").assertCountEquals(0)
     }
 
     @Test
