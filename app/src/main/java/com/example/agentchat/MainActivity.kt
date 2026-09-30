@@ -245,6 +245,10 @@ internal fun AgentChatContent(container: AppContainer) {
                 )
             }
             fun requestSendWithPermissions() {
+                if (chatState.selectedModel == null || chatState.selectedConfigId.isNullOrBlank()) {
+                    container.chatViewModel.onIntent(ChatIntent.Send)
+                    return
+                }
                 val query = chatState.draft.trim()
                 when {
                     PermissionRequirement.needsCurrentLocation(query) && !locationPermissionGranted -> {
