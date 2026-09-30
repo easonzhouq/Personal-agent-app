@@ -181,7 +181,7 @@ fun ChatScreenContent(
                 if (availableModels.isNotEmpty()) {
                     Surface(
                         modifier = Modifier
-                            .widthIn(min = 132.dp, max = 240.dp)
+                            .widthIn(min = 120.dp, max = 190.dp)
                             .height(42.dp)
                             .testTag("model-selector")
                             .clickable { showModelSheet = true }
