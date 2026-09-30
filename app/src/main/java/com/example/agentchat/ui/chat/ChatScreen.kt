@@ -79,6 +79,9 @@ fun ChatScreen(
     onKnowledgeClick: () -> Unit = {},
     onSkillsClick: () -> Unit = {},
     availableSkills: List<Skill> = emptyList(),
+    locationPermissionGranted: Boolean = true,
+    locationServiceEnabled: Boolean = true,
+    onLocationSettingsClick: () -> Unit = {},
     onNewConversation: () -> Unit = {},
     onAttachmentClick: () -> Unit = {},
     onVoiceClick: () -> Unit = {},
@@ -112,6 +115,9 @@ fun ChatScreen(
         onKnowledgeClick = onKnowledgeClick,
         onSkillsClick = onSkillsClick,
         availableSkills = availableSkills,
+        locationPermissionGranted = locationPermissionGranted,
+        locationServiceEnabled = locationServiceEnabled,
+        onLocationSettingsClick = onLocationSettingsClick,
         onNewConversation = onNewConversation,
     )
 }
@@ -139,6 +145,9 @@ fun ChatScreenContent(
     onKnowledgeClick: () -> Unit = {},
     onSkillsClick: () -> Unit = {},
     availableSkills: List<Skill> = emptyList(),
+    locationPermissionGranted: Boolean = true,
+    locationServiceEnabled: Boolean = true,
+    onLocationSettingsClick: () -> Unit = {},
     onNewConversation: () -> Unit = {},
 ) {
     var showModelSheet by remember { mutableStateOf(false) }
@@ -248,6 +257,13 @@ fun ChatScreenContent(
                 }
             }
         }
+        if (!locationPermissionGranted || !locationServiceEnabled) {
+            LocationPermissionBanner(
+                permissionGranted = locationPermissionGranted,
+                serviceEnabled = locationServiceEnabled,
+                onSettingsClick = onLocationSettingsClick,
+            )
+        }
         if (state.messages.isEmpty()) {
             Surface(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -355,6 +371,36 @@ fun ChatScreenContent(
                         .testTag("add-model-menu-item"),
                 ) { Text("＋ 添加新模型") }
             }
+        }
+    }
+}
+
+@Composable
+private fun LocationPermissionBanner(
+    permissionGranted: Boolean,
+    serviceEnabled: Boolean,
+    onSettingsClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = when {
+                    !permissionGranted -> "未获得定位权限，无法查询当前位置天气"
+                    !serviceEnabled -> "系统定位服务已关闭，无法查询当前位置天气"
+                    else -> ""
+                },
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            TextButton(onClick = onSettingsClick) { Text("去设置") }
         }
     }
 }

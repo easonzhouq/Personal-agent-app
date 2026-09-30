@@ -1,6 +1,5 @@
 package com.example.agentchat.data.location
 
-import android.Manifest
 import android.content.Context
 import android.location.Location
 import android.location.LocationManager
@@ -19,10 +18,13 @@ class DeviceLocationProvider(context: Context) {
     private val appContext = context.applicationContext
 
     suspend fun current(): DeviceCoordinates? = withContext(Dispatchers.IO) {
-        if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        if (!LocationPermission.isGranted { permission ->
+                ContextCompat.checkSelfPermission(appContext, permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            }) {
             return@withContext null
         }
         val manager = appContext.getSystemService(LocationManager::class.java) ?: return@withContext null
+        if (!isLocationEnabled(manager)) return@withContext null
         val providers = listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
             .filter { provider -> runCatching { manager.isProviderEnabled(provider) }.getOrDefault(false) }
         val lastKnown = providers.mapNotNull { provider -> runCatching { manager.getLastKnownLocation(provider) }.getOrNull() }
@@ -41,6 +43,18 @@ class DeviceLocationProvider(context: Context) {
                 }
             }
         }
+    }
+
+    fun isLocationEnabled(): Boolean {
+        val manager = appContext.getSystemService(LocationManager::class.java) ?: return false
+        return isLocationEnabled(manager)
+    }
+
+    private fun isLocationEnabled(manager: LocationManager): Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        runCatching { manager.isLocationEnabled }.getOrDefault(false)
+    } else {
+        listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
+            .any { provider -> runCatching { manager.isProviderEnabled(provider) }.getOrDefault(false) }
     }
 
     private fun Location.toCoordinates() = DeviceCoordinates(latitude, longitude)

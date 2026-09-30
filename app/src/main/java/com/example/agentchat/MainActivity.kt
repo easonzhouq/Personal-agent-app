@@ -3,8 +3,10 @@ package com.example.agentchat
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,8 +21,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.lifecycleScope
 import com.example.agentchat.data.attachment.rememberAttachmentPicker
+import com.example.agentchat.data.location.LocationPermission
 import com.example.agentchat.data.voice.VoiceInputLifecycleObserver
 import com.example.agentchat.data.voice.VoiceInputState
 import com.example.agentchat.ui.chat.ChatIntent
@@ -82,9 +87,10 @@ internal fun AgentChatContent(container: AppContainer) {
             val lifecycleOwner = context as? LifecycleOwner
             var locationPermissionGranted by remember {
                 mutableStateOf(
-                    context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED,
+                    LocationPermission.isGranted { permission -> context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED },
                 )
             }
+            var locationServiceEnabled by remember { mutableStateOf(container.locationProvider.isLocationEnabled()) }
             val requestNotificationPermission = androidx.activity.compose.rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission(),
             ) { }
@@ -94,9 +100,10 @@ internal fun AgentChatContent(container: AppContainer) {
                 if (granted) voiceController.start() else voiceController.reportPermissionDenied()
             }
             val requestLocationPermission = androidx.activity.compose.rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission(),
+                ActivityResultContracts.RequestMultiplePermissions(),
             ) { granted ->
-                locationPermissionGranted = granted
+                locationPermissionGranted = LocationPermission.isGranted { permission -> granted[permission] == true }
+                locationServiceEnabled = container.locationProvider.isLocationEnabled()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                     requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
@@ -125,10 +132,21 @@ internal fun AgentChatContent(container: AppContainer) {
 
             LaunchedEffect(Unit) {
                 if (!locationPermissionGranted) {
-                    requestLocationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                    requestLocationPermission.launch(LocationPermission.permissions)
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                     requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
+            }
+
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        locationPermissionGranted = LocationPermission.isGranted { permission -> context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED }
+                        locationServiceEnabled = container.locationProvider.isLocationEnabled()
+                    }
+                }
+                lifecycleOwner?.lifecycle?.addObserver(observer)
+                onDispose { lifecycleOwner?.lifecycle?.removeObserver(observer) }
             }
 
             LaunchedEffect(configState.configs, chatState.selectedConfigId, chatState.selectedModel) {
@@ -200,6 +218,18 @@ internal fun AgentChatContent(container: AppContainer) {
                     onKnowledgeClick = { page = Page.KNOWLEDGE },
                     onSkillsClick = { page = Page.SKILLS },
                     availableSkills = container.skillViewModel.uiState.collectAsState().value.skills,
+                    locationPermissionGranted = locationPermissionGranted,
+                    locationServiceEnabled = locationServiceEnabled,
+                    onLocationSettingsClick = {
+                        val settingsIntent = if (!locationPermissionGranted) {
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        } else {
+                            Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                        }
+                        context.startActivity(settingsIntent)
+                    },
                     onCalendarConfirm = {
                         chatState.pendingCalendarDraft?.let { draft ->
                             pendingCalendarAction = draft
