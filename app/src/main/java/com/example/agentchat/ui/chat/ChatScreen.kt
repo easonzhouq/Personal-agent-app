@@ -219,7 +219,7 @@ fun ChatScreenContent(
                 IconButton(
                     onClick = onNewConversation,
                     modifier = Modifier.semantics { contentDescription = "新对话" },
-                ) { NewConversationIcon(MaterialTheme.colorScheme.primary, Modifier.size(21.dp)) }
+                ) { NewConversationBubbleIcon(MaterialTheme.colorScheme.onSurfaceVariant, Modifier.size(22.dp)) }
                 Box {
                     IconButton(
                         onClick = { showMoreMenu = true },
@@ -360,28 +360,41 @@ fun ChatScreenContent(
 }
 
 @Composable
-private fun NewConversationIcon(color: Color, modifier: Modifier = Modifier) {
+private fun NewConversationBubbleIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier) {
-        val stroke = 1.8.dp.toPx()
-        val inset = stroke * 1.2f
+        val stroke = 1.7.dp.toPx()
         drawRoundRect(
             color = color,
-            topLeft = Offset(inset, inset),
-            size = androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height - inset * 2),
-            cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
+            topLeft = Offset(size.width * 0.12f, size.height * 0.10f),
+            size = androidx.compose.ui.geometry.Size(size.width * 0.76f, size.height * 0.70f),
+            cornerRadius = CornerRadius(7.dp.toPx(), 7.dp.toPx()),
             style = Stroke(width = stroke),
         )
         drawLine(
             color = color,
-            start = Offset(size.width * 0.38f, size.height * 0.67f),
-            end = Offset(size.width * 0.72f, size.height * 0.33f),
+            start = Offset(size.width * 0.31f, size.height * 0.78f),
+            end = Offset(size.width * 0.22f, size.height * 0.92f),
             strokeWidth = stroke,
             cap = StrokeCap.Round,
         )
         drawLine(
             color = color,
-            start = Offset(size.width * 0.36f, size.height * 0.70f),
-            end = Offset(size.width * 0.46f, size.height * 0.68f),
+            start = Offset(size.width * 0.22f, size.height * 0.92f),
+            end = Offset(size.width * 0.42f, size.height * 0.82f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.34f, size.height * 0.45f),
+            end = Offset(size.width * 0.66f, size.height * 0.45f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.50f, size.height * 0.29f),
+            end = Offset(size.width * 0.50f, size.height * 0.61f),
             strokeWidth = stroke,
             cap = StrokeCap.Round,
         )
